@@ -5,6 +5,8 @@
 .vscode/
 *.swp
 apps/desktop/src-tauri/target/
+crates/gamefocus-ui/src-tauri/gen/
+crates/gamefocus-ui/src-tauri/target/
 node_modules/
 dist/
 .cargo-cache/

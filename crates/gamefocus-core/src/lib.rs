@@ -1,10 +1,14 @@
 //! Shared domain for gamefocus: profiles, sessions, focus/boost policies.
 
 mod error;
+mod paths;
 mod profile;
 mod session;
 
 pub use error::{Error, Result};
+pub use paths::{
+    default_snapshot_path, discover_profiles, repo_root_guess, resolve_profile_path,
+};
 pub use profile::{
     BoostPolicy, FocusAction, FocusPolicy, Matcher, Profile, WhitelistEntry,
 };

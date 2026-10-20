@@ -19,13 +19,14 @@ FPS overlay, rewards, dehumidifier, driver “optimizer” packs, telemetry, Cor
 
 ## Status
 
-Early scaffold (Phase 0–1):
+Phase 0–2 + tray scaffold:
 
 - Rust workspace + CLI `gamefocus`
 - Linux Focus (`SIGSTOP` / `SIGCONT`) + GameMode soft-fail boost
 - Bundled profile `profiles/bundled/linux-gaming.toml`
-- Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md)
-- Windows / macOS / Tauri tray: planned
+- Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md) (VM inventory done)
+- Tauri tray UI: [`crates/gamefocus-ui`](crates/gamefocus-ui) (needs `webkit2gtk-4.1` on Linux)
+- Windows / macOS Focus: planned
 
 ## Build
 
@@ -61,6 +62,16 @@ cargo run -p gamefocus-cli -- end
 ```
 
 **Safety:** Focus only acts on the explicit `[[park]]` list. Empty `park` = no suspensions. Shell/compositor names are protected when `protect_shell = true`.
+
+## Tray UI (Tauri)
+
+```bash
+# Linux deps once: sudo pacman -S webkit2gtk-4.1
+export PATH="$HOME/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin:$PATH"
+cargo tauri dev --manifest-path crates/gamefocus-ui/src-tauri/Cargo.toml
+```
+
+See [`crates/gamefocus-ui/README.md`](crates/gamefocus-ui/README.md).
 
 ## Anti-cheat note
 

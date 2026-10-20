@@ -6,6 +6,7 @@ members = [
     "crates/gamefocus-windows",
     "crates/gamefocus-macos",
     "crates/gamefocus-cli",
+    "crates/gamefocus-ui/src-tauri",
 ]
 default-members = ["crates/gamefocus-cli"]
 

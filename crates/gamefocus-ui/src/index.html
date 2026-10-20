@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>gamefocus</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+  <body>
+    <main class="panel">
+      <header>
+        <h1>gamefocus</h1>
+        <p class="tagline">Focus and Boost, independently.</p>
+      </header>
+
+      <section class="status" aria-live="polite">
+        <p id="status-line">Loading…</p>
+      </section>
+
+      <label class="field">
+        Profile
+        <select id="profile-select"></select>
+      </label>
+
+      <fieldset class="toggles">
+        <legend>Session switches</legend>
+        <label><input type="checkbox" id="focus-toggle" checked /> Focus</label>
+        <label><input type="checkbox" id="boost-toggle" checked /> Boost</label>
+      </fieldset>
+
+      <div class="actions">
+        <button type="button" id="start-btn">Start</button>
+        <button type="button" id="end-btn">End</button>
+        <button type="button" id="refresh-btn" class="ghost">Refresh</button>
+      </div>
+
+      <p id="error" class="error" hidden></p>
+      <p class="hint">Closing this window hides it; use the tray to quit.</p>
+    </main>
+  </body>
+</html>
