@@ -1,0 +1,38 @@
+---
+description: gamefocus agile loop and cargo TDD
+alwaysApply: true
+---
+
+# Agile and TDD (this repo)
+
+Tracker: GitHub Issues. Integration branch: `develop`. Stable branch: `main`.
+
+## One issue
+
+- Branch from `develop`: `feature/<issue>-slug` or `bugfix/<issue>-slug`.
+- Pull request targets `develop`. Do not push feature work straight to `main`.
+- Do not open a second in-progress issue. Do not mark the issue Done; QA owns that.
+
+## Story before code
+
+```
+User Story
+As a <role>, I want <capability>, so that <value>.
+
+Acceptance Criteria
+Given <context>
+When <action>
+Then <outcome>
+```
+
+## TDD
+
+Functional Rust only. Config, docs, and workflow YAML skip the red-green cycle; say so.
+
+1. RED — one or two assertions, expected value explicit. `cargo test -p <crate> <test_name>`. Confirm the failure reason.
+2. GREEN — production code only. Re-run the same test.
+3. REFACTOR — names and duplication only. Re-run `cargo test --workspace --exclude gamefocus-ui`.
+
+Do not delete, weaken, or empty an assertion to get green. The terminal log is the exit criterion.
+
+Suggested commit: `test:`, `feat:`, or `fix:` with `(RED)` / `(GREEN)` / `(REFACTOR)` when the user asked to commit. Do not commit unless asked.

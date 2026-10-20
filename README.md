@@ -23,6 +23,8 @@ FPS overlay, rewards, dehumidifier, driver “optimizer” packs, telemetry, Cor
 
 Spec: [`docs/specs/2026-10-20-gamefocus.md`](docs/specs/2026-10-20-gamefocus.md).
 
+Story and failing test first for Rust changes (`.cursor/rules/agile-tdd.mdc`). SonarQube Cloud scans on `develop` and `main` after the `SONAR_TOKEN` secret exists. Tag `v*` builds the CLI for Linux x64, Windows x64, and macOS arm64.
+
 ## Status
 
 Early scaffold (Phase 0–1):

@@ -28,6 +28,8 @@ Constraints:
 Done when:
   cargo test, cargo clippy -D warnings, and cargo build pass for the
   workspace members that CI builds, and the matching GitHub Actions jobs are green.
+  Tag pushes v* publish CLI archives for Linux x64, Windows x64, and macOS arm64.
+  SonarQube Cloud scans develop and main once SONAR_TOKEN is set.
 ```
 
 ## Layout
@@ -54,3 +56,10 @@ cargo build --workspace --exclude gamefocus-ui
 ```
 
 The tray crate is not on `develop` yet. When it lands, Linux CI needs `webkit2gtk-4.1`.
+
+## Quality and release
+
+- Agile and TDD for this repo: `.cursor/rules/agile-tdd.mdc`
+- Sonar: `.cursor/rules/sonar.mdc`, `sonar-project.properties`, secret `SONAR_TOKEN`
+- Release: push tag `v*` (`.github/workflows/release.yml`)
+
