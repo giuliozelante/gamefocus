@@ -68,3 +68,40 @@ Throwaway Tiny10 via `dockur/windows` at `~/VMs/gamefocus-windows`.
 - RDP: 127.0.0.1:3389 (`Docker` / `admin`)
 - Installer on guest Shared (`Z:\RazerCortexInstaller.exe`)
 - After install, copy `Cortex.exe` helpers into `~/VMs/gamefocus-windows/shared/extracted/` for REA on the host.
+
+## Post-install observations (2026-10-20)
+
+Installed via `dockur/windows` Tiny10 lab (`~/VMs/gamefocus-windows`, `ADAPTER=e1000`). Product bits land at:
+
+`C:\Program Files (x86)\Razer\Razer Cortex\`
+
+### Key binaries (host copy under `~/VMs/gamefocus-windows/shared/extracted/bin/` — **not** committed to git)
+
+| File | Role (from names + strings) |
+|------|-----------------------------|
+| `RazerCortex.exe` / `.Shell.exe` | Main UI shell |
+| `RazerCortexBoostHelper.exe` | Boost helper process |
+| `Boost.dll` | Core Game Booster engine |
+| `RazerCortex.GameBoost.dll` | Managed Game Boost layer |
+| `RazerCortex.SystemOptimize.dll` / `SystemClean.dll` / `SystemSetting.dll` | System tweak modules |
+| `RazerCortex.GameOverlay.dll` / `GameClip.dll` / `FPSRunner.exe` | Overlay / clips / FPS — **won't copy** |
+| AWS Kinesis SDK (in install dir) | Telemetry — **won't copy** |
+
+### `Boost.dll` behavioral checklist (`CBoostManage::StartBoost` / `Restore`)
+
+| Module | Bucket for gamefocus |
+|--------|----------------------|
+| Process Boost / Restore | **Focus (A)** — process park/restore |
+| BackgroundApps Boost | **Focus (A)** |
+| Service Boost | **out of scope** by default |
+| Power Boost | **Boost (B)** — power plan |
+| Ram Boost (`EmptyWorkingSet`) | **Boost (B)** — background only |
+| Clipboard / Desktop / Cortana / Telemetry disable | **won't copy** / optional later |
+| Key / WinKey disabler | **won't copy** |
+| CPU unpark / affinity | **Boost (B)** (Linux: GameMode-ish) |
+
+Whitelist language appears in `Boost.dll` (`WhiteList` / `Whitelist`). Full string dump: `~/VMs/gamefocus-windows/shared/extracted/strings-inventory.md`.
+
+### Installer note
+
+Cortex is downloaded by the Razer Gaming Software hub (~426 MB), not embedded in `RazerCortexInstaller.exe`.
