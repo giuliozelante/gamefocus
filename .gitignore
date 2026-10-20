@@ -1,0 +1,10 @@
+/target
+**/*.rs.bk
+.DS_Store
+.idea/
+.vscode/
+*.swp
+apps/desktop/src-tauri/target/
+node_modules/
+dist/
+.cargo-cache/

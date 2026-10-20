@@ -1,0 +1,71 @@
+name = "linux-gaming"
+description = "Park heavy desktop apps; keep Steam, Discord, Plasma, and the game. Ported from gaming-focus.sh."
+
+# Detect The Outlast Trials / Proton / Steam game processes (never park these)
+[[matchers]]
+cmdline = "OutlastTrials"
+
+[[matchers]]
+cmdline = "steamapps"
+
+[[matchers]]
+process_name = "reaper"
+
+# Explicit park list (deny-list) — only these may be suspended
+[[park]]
+exe_path = "/opt/google/chrome/chrome"
+
+[[park]]
+cmdline = "immobiliare-chrome-profile"
+
+[[park]]
+exe_path = "/home/gzelante/.local/share/Telegram/Telegram"
+
+[[park]]
+exe_path = "/usr/bin/systemsettings"
+
+[[park]]
+process_name = "scrcpy"
+
+[[park]]
+cmdline = "hermes_cli.main"
+
+[[park]]
+cmdline = "/home/gzelante/.hermes/"
+
+[[park]]
+process_name = "omniroute"
+
+[[park]]
+process_name = "intellij-server"
+
+[[park]]
+cmdline = "/tmp/.mount_Cursor"
+
+[[park]]
+cmdline = "cursor-appimage"
+
+# Extra protect (in addition to shell protect)
+[[whitelist]]
+process_name = "steam"
+
+[[whitelist]]
+cmdline = "steamwebhelper"
+
+[[whitelist]]
+cmdline = "com.discordapp.Discord"
+
+[[whitelist]]
+cmdline = "/app/discord"
+
+[[whitelist]]
+process_name = "Discord"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = ["gamemode"]

@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/gamefocus-core",
+    "crates/gamefocus-linux",
+    "crates/gamefocus-windows",
+    "crates/gamefocus-macos",
+    "crates/gamefocus-cli",
+]
+default-members = ["crates/gamefocus-cli"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/giuliozelante/gamefocus"
+authors = ["Giulio Zelante"]
+
+[workspace.dependencies]
+gamefocus-core = { path = "crates/gamefocus-core" }
+gamefocus-linux = { path = "crates/gamefocus-linux" }
+gamefocus-windows = { path = "crates/gamefocus-windows" }
+gamefocus-macos = { path = "crates/gamefocus-macos" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+thiserror = "2"
+clap = { version = "4", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
