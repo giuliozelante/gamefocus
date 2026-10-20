@@ -60,3 +60,11 @@ Mapped to **gamefocus** Focus (A) / Boost (B) / **won’t copy**:
 - Prefer **Focus before launch** for competitive titles; avoid Boost that touches the protected game process.
 - Document privilege needs (user vs admin/polkit) when Boost providers need elevation.
 - Treat any future Cortex RE notes as a checklist only — clean-room Rust remains the implementation source.
+
+## Lab VM (added)
+
+Throwaway Tiny10 via `dockur/windows` at `~/VMs/gamefocus-windows`.
+- Viewer: http://127.0.0.1:8006
+- RDP: 127.0.0.1:3389 (`Docker` / `admin`)
+- Installer on guest Shared (`Z:\RazerCortexInstaller.exe`)
+- After install, copy `Cortex.exe` helpers into `~/VMs/gamefocus-windows/shared/extracted/` for REA on the host.
