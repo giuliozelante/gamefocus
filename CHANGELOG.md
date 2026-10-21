@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-21
+
 ### Added
 
 - Linux Focus (`SIGSTOP` / `SIGCONT`) and GameMode Boost soft-fail
@@ -30,3 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Focus only acts on the explicit park deny-list; shell protect stays on by default
 - Working-set and CPU affinity touch only Focus-suspended background pids
+
+[Unreleased]: https://github.com/giuliozelante/gamefocus/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/giuliozelante/gamefocus/releases/tag/v0.1.0
