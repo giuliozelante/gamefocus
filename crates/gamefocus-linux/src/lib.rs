@@ -6,7 +6,9 @@ use gamefocus_core::{
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use tracing::{debug, info, warn};
+#[cfg(target_os = "linux")]
+use tracing::debug;
+use tracing::{info, warn};
 
 pub struct LinuxProcessController;
 
