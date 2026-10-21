@@ -9,7 +9,7 @@ Inspired by the *useful* part of Razer Cortex — not a clone.
 | Switch | What it does |
 |--------|----------------|
 | **Focus** | Suspend (preferred) or soft-stop processes listed in the profile `park` list; restore on session end |
-| **Boost** | Apply reversible OS tweaks for the session (Linux: Feral GameMode when available) |
+| **Boost** | Apply reversible OS tweaks for the session (Linux: Feral GameMode when available; Windows: High Performance power plan). macOS has no Boost provider yet |
 
 Use Focus only, Boost only, or both. Gaming preset defaults: both on.
 
@@ -35,7 +35,7 @@ Phase 0–2 + tray scaffold:
 - Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md) (VM inventory done)
 - Tauri tray UI: [`crates/gamefocus-ui`](crates/gamefocus-ui) (needs `webkit2gtk-4.1` on Linux)
 - Windows Focus suspend/resume and power-plan Boost (`power_plan`)
-- macOS Focus: planned
+- macOS Focus suspend/resume (`SIGSTOP` / `SIGCONT`). No Boost provider yet
 
 ## Build
 
