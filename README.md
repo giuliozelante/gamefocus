@@ -22,7 +22,7 @@ FPS overlay, rewards, dehumidifier, driver “optimizer” packs, telemetry, Cor
 `develop` is the integration branch. Cut `feature/<issue>-slug` or `bugfix/<issue>-slug` from `develop` and open the pull request into `develop`. `main` stays the stable line.
 
 Spec: [`docs/specs/2026-10-20-gamefocus.md`](docs/specs/2026-10-20-gamefocus.md).
-Changelog: [`CHANGELOG.md`](CHANGELOG.md). Releases: [v0.3.0](https://github.com/giuliozelante/gamefocus/releases/tag/v0.3.0).
+Changelog: [`CHANGELOG.md`](CHANGELOG.md). Releases: [v0.3.1](https://github.com/giuliozelante/gamefocus/releases/tag/v0.3.1).
 
 Story and failing test first for Rust changes (`.cursor/rules/agile-tdd.mdc`). SonarQube Cloud scans on `develop` and `main` after the `SONAR_TOKEN` secret exists. Tag `v*` builds the CLI archives plus unsigned tray installers (`.deb` / NSIS `.exe` / `.dmg`).
 
