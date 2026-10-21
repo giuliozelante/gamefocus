@@ -133,7 +133,7 @@ impl BoostProvider for GameModeBoost {
         "gamemode"
     }
 
-    fn apply(&self) -> Result<BoostHandle> {
+    fn apply(&self, _ctx: &gamefocus_core::BoostContext<'_>) -> Result<BoostHandle> {
         if !Self::available() {
             return Err(Error::Boost {
                 provider: "gamemode".into(),

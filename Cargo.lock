@@ -1283,6 +1283,7 @@ name = "gamefocus-windows"
 version = "0.1.0"
 dependencies = [
  "gamefocus-core",
+ "tracing",
 ]
 
 [[package]]

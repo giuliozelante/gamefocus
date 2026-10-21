@@ -32,4 +32,4 @@ protect_shell = true
 
 [boost]
 enabled = true
-providers = ["power_plan"]
+providers = ["power_plan", "working_set"]

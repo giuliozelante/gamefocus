@@ -34,7 +34,7 @@ Phase 0–2 + tray scaffold:
 - Bundled profiles `profiles/bundled/{linux,windows,macos}-gaming.toml`
 - Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md) (VM inventory done)
 - Tauri tray UI: [`crates/gamefocus-ui`](crates/gamefocus-ui) (needs `webkit2gtk-4.1` on Linux)
-- Windows Focus suspend/resume and power-plan Boost (`power_plan`)
+- Windows Focus suspend/resume, power-plan Boost (`power_plan`), and working-set Boost (`working_set`)
 - macOS Focus suspend/resume (`SIGSTOP` / `SIGCONT`). No Boost provider yet
 
 ## Build
