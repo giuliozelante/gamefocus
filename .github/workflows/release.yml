@@ -104,11 +104,8 @@ jobs:
           crate: tauri-cli
           version: "2.12.3"
       - name: Bundle tray UI
-        run: >
-          cargo tauri build
-          --ci
-          --bundles ${{ matrix.bundles }}
-          --manifest-path crates/gamefocus-ui/src-tauri/Cargo.toml
+        working-directory: crates/gamefocus-ui/src-tauri
+        run: cargo tauri build --ci --bundles ${{ matrix.bundles }}
       - name: Stage installer
         shell: bash
         env:
