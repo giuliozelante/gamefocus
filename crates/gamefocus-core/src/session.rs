@@ -135,6 +135,29 @@ pub struct BoostContext<'a> {
     pub suspended: &'a [SuspendedProcess],
 }
 
+/// Processes Focus would park for this profile (deny-list, whitelist, shell protect).
+pub fn park_targets<'a>(
+    profile: &Profile,
+    processes: &'a [ProcessInfo],
+    self_pid: u32,
+) -> Vec<&'a ProcessInfo> {
+    processes
+        .iter()
+        .filter(|info| {
+            if info.pid == self_pid || info.pid == 1 {
+                return false;
+            }
+            if profile.focus.protect_shell && is_protected_shell(info) {
+                return false;
+            }
+            if matches_whitelist(info, profile) || matches_any_matcher(info, &profile.matchers) {
+                return false;
+            }
+            matches_any_matcher(info, &profile.park)
+        })
+        .collect()
+}
+
 /// Apply Focus and/or Boost according to profile + mode overrides.
 /// Focus always runs before Boost so providers can see parked pids.
 pub fn start_session(
@@ -154,20 +177,7 @@ pub fn start_session(
         }
         let processes = controller.list_processes()?;
         let self_pid = std::process::id();
-        for info in processes {
-            if info.pid == self_pid || info.pid == 1 {
-                continue;
-            }
-            if profile.focus.protect_shell && is_protected_shell(&info) {
-                continue;
-            }
-            if matches_whitelist(&info, profile) || matches_any_matcher(&info, &profile.matchers) {
-                continue;
-            }
-            if !matches_any_matcher(&info, &profile.park) {
-                continue;
-            }
-
+        for info in park_targets(profile, &processes, self_pid) {
             let action = match profile.focus.action {
                 FocusAction::Suspend => {
                     controller.suspend(info.pid)?;
@@ -439,6 +449,42 @@ mod tests {
         let boost = OrderEndBoost { order: &order };
         end_session(&snap, &controller, &[&boost]).expect("end");
         assert_eq!(*order.lock().expect("order"), vec!["rollback", "resume"]);
+    }
+
+    #[test]
+    fn park_targets_lists_deny_list_hits() {
+        let profile = Profile {
+            name: "park".into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: vec![crate::profile::Matcher::ProcessName("chrome".into())],
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy::default(),
+            boost: crate::profile::BoostPolicy::default(),
+        };
+        let processes = vec![
+            ProcessInfo {
+                pid: 1,
+                name: "init".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 42,
+                name: "chrome".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 99,
+                name: "safe".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+        ];
+        let hits = park_targets(&profile, &processes, 7);
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].pid, 42);
     }
 
     #[test]
