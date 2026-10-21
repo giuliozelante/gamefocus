@@ -33,6 +33,16 @@ cd crates/gamefocus-ui
 cargo tauri dev
 ```
 
+## Bundle (local)
+
+```bash
+cargo tauri build --bundles deb --manifest-path crates/gamefocus-ui/src-tauri/Cargo.toml
+# Windows: --bundles nsis
+# macOS:   --bundles dmg
+```
+
+Tagged GitHub Releases publish unsigned installers (`.deb` / NSIS setup `.exe` / `.dmg`). Code signing is not configured yet.
+
 ## Controls
 
 - Window: pick profile, toggle Focus/Boost, Start / End
