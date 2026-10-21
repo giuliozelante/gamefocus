@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Linux GameMode Boost used the wrong D-Bus interface (`.Client`); RegisterGame now targets `com.feralinteractive.GameMode`
+
 ## [0.3.0] - 2026-10-21
 
 ### Added
