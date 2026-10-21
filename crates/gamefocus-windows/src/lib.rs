@@ -67,10 +67,10 @@ impl SchemeStore for PowercfgStore {
                 .arg("/getactivescheme")
                 .output()?;
             let text = String::from_utf8_lossy(&out.stdout);
-            return parse_active_scheme(&text).ok_or_else(|| Error::Boost {
+            parse_active_scheme(&text).ok_or_else(|| Error::Boost {
                 provider: "power_plan".into(),
                 message: format!("unparsed powercfg output: {text}"),
-            });
+            })
         }
         #[cfg(not(windows))]
         {
@@ -90,10 +90,10 @@ impl SchemeStore for PowercfgStore {
             if status.success() {
                 return Ok(());
             }
-            return Err(Error::Boost {
+            Err(Error::Boost {
                 provider: "power_plan".into(),
                 message: format!("powercfg /setactive {guid} exited {status}"),
-            });
+            })
         }
         #[cfg(not(windows))]
         {
@@ -171,7 +171,7 @@ impl ProcessOps for SystemProcessOps {
             let out = std::process::Command::new("tasklist")
                 .args(["/FO", "CSV", "/NH"])
                 .output()?;
-            return Ok(parse_tasklist_csv(&String::from_utf8_lossy(&out.stdout)));
+            Ok(parse_tasklist_csv(&String::from_utf8_lossy(&out.stdout)))
         }
         #[cfg(not(windows))]
         {
@@ -184,7 +184,7 @@ impl ProcessOps for SystemProcessOps {
     fn suspend(&self, pid: u32) -> Result<()> {
         #[cfg(windows)]
         {
-            return nt_process(pid, true);
+            nt_process(pid, true)
         }
         #[cfg(not(windows))]
         {
@@ -198,7 +198,7 @@ impl ProcessOps for SystemProcessOps {
     fn resume(&self, pid: u32) -> Result<()> {
         #[cfg(windows)]
         {
-            return nt_process(pid, false);
+            nt_process(pid, false)
         }
         #[cfg(not(windows))]
         {
@@ -218,10 +218,10 @@ impl ProcessOps for SystemProcessOps {
             if status.success() {
                 return Ok(());
             }
-            return Err(Error::Process {
+            Err(Error::Process {
                 pid,
                 message: format!("taskkill exited {status}"),
-            });
+            })
         }
         #[cfg(not(windows))]
         {
