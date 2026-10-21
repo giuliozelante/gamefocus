@@ -1,0 +1,16 @@
+---
+description: SonarQube Cloud scan for gamefocus
+globs: sonar-project.properties,.github/workflows/sonar.yml,**/*.rs
+alwaysApply: false
+---
+
+# Sonar
+
+Analysis is CI-based on SonarQube Cloud. Config: `sonar-project.properties`. Workflow: `.github/workflows/sonar.yml`.
+
+- Project key: `giuliozelante_gamefocus`
+- Organization: `giuliozelante`
+- Host: `https://sonarcloud.io`
+- Secret name only: `SONAR_TOKEN` (GitHub Actions). Never commit a token.
+- Create the Cloud project and paste the token before treating the quality gate as required. Until `SONAR_TOKEN` exists, the workflow warns and skips the scan.
+- Do not silence a finding by deleting the assertion or the scanned source. Fix the code, or mark a deliberate test false positive in the Sonar UI.
