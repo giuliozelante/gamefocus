@@ -86,7 +86,7 @@ impl Default for BoostPolicy {
     fn default() -> Self {
         Self {
             enabled: true,
-            providers: vec!["gamemode".into()],
+            providers: Vec::new(),
         }
     }
 }
@@ -119,5 +119,11 @@ description = "unit"
         let p: Profile = toml::from_str(toml).unwrap();
         assert!(p.focus.enabled);
         assert!(p.boost.enabled);
+        assert!(p.boost.providers.is_empty());
+    }
+
+    #[test]
+    fn boost_default_providers_are_empty() {
+        assert!(BoostPolicy::default().providers.is_empty());
     }
 }

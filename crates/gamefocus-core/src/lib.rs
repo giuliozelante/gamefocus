@@ -13,7 +13,8 @@ pub use profile::{
     BoostPolicy, FocusAction, FocusPolicy, Matcher, Profile, WhitelistEntry,
 };
 pub use session::{
-    end_session, start_session, BoostContext, SessionMode, SessionSnapshot, SuspendedProcess,
+    end_session, park_targets, start_session, BoostContext, SessionMode, SessionSnapshot,
+    SuspendedProcess,
 };
 
 /// Platform capability used by the CLI to pick a backend.

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use gamefocus_core::{
-    default_snapshot_path, discover_profiles, end_session, resolve_profile_path, start_session,
-    BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
+    default_snapshot_path, discover_profiles, end_session, park_targets, resolve_profile_path,
+    start_session, BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -185,7 +185,15 @@ fn dry_run_report(
         return Ok(());
     }
     let processes = controller.list_processes()?;
-    println!("would evaluate {} processes (whitelist + shell protect applied at start)", processes.len());
+    let targets = park_targets(profile, &processes, std::process::id());
+    println!(
+        "would park {} of {} processes:",
+        targets.len(),
+        processes.len()
+    );
+    for info in targets {
+        println!("  {} pid={}", info.name, info.pid);
+    }
     Ok(())
 }
 
