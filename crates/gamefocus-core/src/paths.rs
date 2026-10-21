@@ -6,10 +6,19 @@ use std::path::{Path, PathBuf};
 
 /// Session snapshot next to the user's runtime data dir when possible.
 pub fn default_snapshot_path() -> PathBuf {
-    if let Ok(dir) = env::var("XDG_RUNTIME_DIR") {
+    resolve_snapshot_path(|key| env::var_os(key))
+}
+
+fn resolve_snapshot_path(
+    mut get: impl FnMut(&str) -> Option<std::ffi::OsString>,
+) -> PathBuf {
+    if let Some(dir) = get("XDG_RUNTIME_DIR") {
         return PathBuf::from(dir).join("gamefocus-session.json");
     }
-    if let Some(home) = env::var_os("HOME") {
+    if let Some(local) = get("LOCALAPPDATA") {
+        return PathBuf::from(local).join("gamefocus").join("session.json");
+    }
+    if let Some(home) = get("HOME") {
         return PathBuf::from(home)
             .join(".local/state/gamefocus")
             .join("session.json");
@@ -82,6 +91,17 @@ pub fn repo_root_guess() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn snapshot_path_prefers_localappdata_when_xdg_unset() {
+        let local = PathBuf::from("C:").join("Users").join("me").join("AppData").join("Local");
+        let path = resolve_snapshot_path(|key| match key {
+            "XDG_RUNTIME_DIR" => None,
+            "LOCALAPPDATA" => Some(local.as_os_str().to_owned()),
+            _ => None,
+        });
+        assert_eq!(path, local.join("gamefocus").join("session.json"));
+    }
 
     #[test]
     fn bundled_windows_profile_uses_power_plan() {
