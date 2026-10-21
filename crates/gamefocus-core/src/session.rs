@@ -210,20 +210,12 @@ pub fn start_session(
     Ok(snap)
 }
 
-/// Restore suspended processes and roll back boosts.
+/// Roll back boosts, then resume suspended processes.
 pub fn end_session(
     snapshot: &SessionSnapshot,
     controller: &dyn ProcessController,
     boosters: &[&dyn BoostProvider],
 ) -> Result<()> {
-    for proc in snapshot.suspended.iter().rev() {
-        if proc.action == "suspend" {
-            if let Err(err) = controller.resume(proc.pid) {
-                warn!(pid = proc.pid, %err, "resume failed");
-            }
-        }
-    }
-
     for dto in snapshot.boost_handles.iter().rev() {
         let handle: BoostHandle = dto.clone().into();
         if let Some(provider) = boosters.iter().find(|p| p.id() == handle.provider_id) {
@@ -235,6 +227,14 @@ pub fn end_session(
                 provider: dto.provider_id.clone(),
                 message: "provider not registered at end_session".into(),
             });
+        }
+    }
+
+    for proc in snapshot.suspended.iter().rev() {
+        if proc.action == "suspend" {
+            if let Err(err) = controller.resume(proc.pid) {
+                warn!(pid = proc.pid, %err, "resume failed");
+            }
         }
     }
     Ok(())
@@ -380,5 +380,101 @@ mod tests {
         };
         start_session(&profile, SessionMode::default(), &Noop, &[&boost]).expect("start");
         assert_eq!(*boost.hits.lock().expect("hits"), 1);
+    }
+
+    #[test]
+    fn end_rolls_boost_back_before_resume() {
+        let order = Mutex::new(Vec::new());
+        struct OrderEndController<'a> {
+            order: &'a Mutex<Vec<&'static str>>,
+        }
+        impl ProcessController for OrderEndController<'_> {
+            fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
+                Ok(Vec::new())
+            }
+            fn suspend(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+            fn resume(&self, _pid: u32) -> Result<()> {
+                self.order.lock().expect("order").push("resume");
+                Ok(())
+            }
+            fn soft_stop(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+        }
+        struct OrderEndBoost<'a> {
+            order: &'a Mutex<Vec<&'static str>>,
+        }
+        impl BoostProvider for OrderEndBoost<'_> {
+            fn id(&self) -> &'static str {
+                "power_plan"
+            }
+            fn apply(&self, _ctx: &BoostContext<'_>) -> Result<BoostHandle> {
+                Ok(BoostHandle {
+                    provider_id: "power_plan".into(),
+                    payload: String::new(),
+                })
+            }
+            fn rollback(&self, _handle: BoostHandle) -> Result<()> {
+                self.order.lock().expect("order").push("rollback");
+                Ok(())
+            }
+        }
+        let snap = SessionSnapshot {
+            profile_name: "end-order".into(),
+            focus_applied: true,
+            boost_applied: true,
+            suspended: vec![SuspendedProcess {
+                pid: 7,
+                name: "chrome".into(),
+                action: "suspend".into(),
+            }],
+            boost_handles: vec![BoostHandleDto {
+                provider_id: "power_plan".into(),
+                payload: String::new(),
+            }],
+        };
+        let controller = OrderEndController { order: &order };
+        let boost = OrderEndBoost { order: &order };
+        end_session(&snap, &controller, &[&boost]).expect("end");
+        assert_eq!(*order.lock().expect("order"), vec!["rollback", "resume"]);
+    }
+
+    #[test]
+    fn soft_stop_entries_are_not_resumed() {
+        let resumes = Mutex::new(Vec::new());
+        struct ResumeLog<'a> {
+            resumes: &'a Mutex<Vec<u32>>,
+        }
+        impl ProcessController for ResumeLog<'_> {
+            fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
+                Ok(Vec::new())
+            }
+            fn suspend(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+            fn resume(&self, pid: u32) -> Result<()> {
+                self.resumes.lock().expect("resumes").push(pid);
+                Ok(())
+            }
+            fn soft_stop(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+        }
+        let snap = SessionSnapshot {
+            profile_name: "soft".into(),
+            focus_applied: true,
+            boost_applied: false,
+            suspended: vec![SuspendedProcess {
+                pid: 9,
+                name: "chrome".into(),
+                action: "soft_stop".into(),
+            }],
+            boost_handles: Vec::new(),
+        };
+        let controller = ResumeLog { resumes: &resumes };
+        end_session(&snap, &controller, &[]).expect("end");
+        assert!(resumes.lock().expect("resumes").is_empty());
     }
 }
