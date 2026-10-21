@@ -1,10 +1,10 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use gamefocus_core::{
-    end_session, start_session, BoostProvider, ProcessController, Profile, SessionMode,
-    SessionSnapshot,
+    default_snapshot_path, discover_profiles, end_session, resolve_profile_path, start_session,
+    BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
 };
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use tracing::{info, Level};
 
 #[derive(Parser, Debug)]
@@ -27,23 +27,25 @@ enum Commands {
         /// Override Boost on/off
         #[arg(long, value_enum)]
         boost: Option<OnOff>,
-        /// Where to write the session snapshot (for `end`)
-        #[arg(long, default_value = "gamefocus-session.json")]
-        snapshot: PathBuf,
+        /// Where to write the session snapshot (for `end`). Default: XDG/runtime path.
+        #[arg(long)]
+        snapshot: Option<PathBuf>,
         /// List what would be acted on without suspending/stopping
         #[arg(long)]
         dry_run: bool,
     },
     /// End a session using a previously written snapshot
     End {
-        #[arg(long, default_value = "gamefocus-session.json")]
-        snapshot: PathBuf,
+        #[arg(long)]
+        snapshot: Option<PathBuf>,
     },
     /// Show whether a snapshot file exists and summarize it
     Status {
-        #[arg(long, default_value = "gamefocus-session.json")]
-        snapshot: PathBuf,
+        #[arg(long)]
+        snapshot: Option<PathBuf>,
     },
+    /// List discoverable profile TOML files
+    Profiles,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -75,18 +77,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } => cmd_start(profile, focus, boost, snapshot, dry_run)?,
         Commands::End { snapshot } => cmd_end(snapshot)?,
         Commands::Status { snapshot } => cmd_status(snapshot)?,
+        Commands::Profiles => cmd_profiles()?,
     }
     Ok(())
+}
+
+fn snapshot_or_default(snapshot: Option<PathBuf>) -> PathBuf {
+    snapshot.unwrap_or_else(default_snapshot_path)
 }
 
 fn cmd_start(
     profile_path: PathBuf,
     focus: Option<OnOff>,
     boost: Option<OnOff>,
-    snapshot_path: PathBuf,
+    snapshot: Option<PathBuf>,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let profile = Profile::load_file(&profile_path)?;
+    let resolved = resolve_profile_path(&profile_path)?;
+    let profile = Profile::load_file(&resolved)?;
+    let snapshot_path = snapshot_or_default(snapshot);
     let mode = SessionMode {
         focus: focus.map(OnOff::as_bool),
         boost: boost.map(OnOff::as_bool),
@@ -101,6 +110,9 @@ fn cmd_start(
         return Ok(());
     }
 
+    if let Some(parent) = snapshot_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
     let snap = start_session(&profile, mode, controller.as_ref(), &booster_refs)?;
     fs::write(&snapshot_path, serde_json::to_string_pretty(&snap)?)?;
     info!(
@@ -113,7 +125,8 @@ fn cmd_start(
     Ok(())
 }
 
-fn cmd_end(snapshot_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn cmd_end(snapshot: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot_path = snapshot_or_default(snapshot);
     let text = fs::read_to_string(&snapshot_path)?;
     let snap: SessionSnapshot = serde_json::from_str(&text)?;
     let controller = platform_controller();
@@ -125,7 +138,8 @@ fn cmd_end(snapshot_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn cmd_status(snapshot_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+fn cmd_status(snapshot: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    let snapshot_path = snapshot_or_default(snapshot);
     if !snapshot_path.exists() {
         println!("no active session ({})", snapshot_path.display());
         return Ok(());
@@ -140,6 +154,18 @@ fn cmd_status(snapshot_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> 
     );
     for p in &snap.suspended {
         println!("  {} pid={} action={}", p.name, p.pid, p.action);
+    }
+    Ok(())
+}
+
+fn cmd_profiles() -> Result<(), Box<dyn std::error::Error>> {
+    let found = discover_profiles();
+    if found.is_empty() {
+        println!("no profiles found");
+        return Ok(());
+    }
+    for path in found {
+        println!("{}", path.display());
     }
     Ok(())
 }
@@ -201,7 +227,3 @@ fn platform_boosters() -> Vec<Box<dyn BoostProvider>> {
     }
 }
 
-#[allow(dead_code)]
-fn resolve_profile(path: &Path) -> PathBuf {
-    path.to_path_buf()
-}

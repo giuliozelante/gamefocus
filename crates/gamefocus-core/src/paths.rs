@@ -36,19 +36,23 @@ pub fn resolve_profile_path(path: impl AsRef<Path>) -> Result<PathBuf, String> {
 
 pub fn discover_profiles() -> Vec<PathBuf> {
     let mut out = Vec::new();
+    let mut seen = std::collections::HashSet::new();
     for dir in profile_search_dirs() {
         let Ok(entries) = fs::read_dir(&dir) else {
             continue;
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("toml") {
+            if path.extension().and_then(|e| e.to_str()) != Some("toml") {
+                continue;
+            }
+            let key = path.canonicalize().unwrap_or_else(|_| path.clone());
+            if seen.insert(key) {
                 out.push(path);
             }
         }
     }
     out.sort();
-    out.dedup();
     out
 }
 
