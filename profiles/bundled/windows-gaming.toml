@@ -1,0 +1,35 @@
+name = "windows-gaming"
+description = "Park common desktop apps. Keep the shell, Steam, and Discord. Boost switches the power plan."
+
+[[matchers]]
+cmdline = "steamapps"
+
+[[park]]
+process_name = "chrome.exe"
+
+[[park]]
+process_name = "msedge.exe"
+
+[[park]]
+process_name = "firefox.exe"
+
+[[park]]
+process_name = "Telegram.exe"
+
+[[whitelist]]
+process_name = "steam.exe"
+
+[[whitelist]]
+process_name = "Discord.exe"
+
+[[whitelist]]
+process_name = "gamefocus"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = ["power_plan"]

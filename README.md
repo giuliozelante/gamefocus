@@ -31,7 +31,7 @@ Phase 0–2 + tray scaffold:
 
 - Rust workspace + CLI `gamefocus`
 - Linux Focus (`SIGSTOP` / `SIGCONT`) + GameMode soft-fail boost
-- Bundled profile `profiles/bundled/linux-gaming.toml`
+- Bundled profiles `profiles/bundled/{linux,windows,macos}-gaming.toml`
 - Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md) (VM inventory done)
 - Tauri tray UI: [`crates/gamefocus-ui`](crates/gamefocus-ui) (needs `webkit2gtk-4.1` on Linux)
 - Windows Focus suspend/resume and power-plan Boost (`power_plan`)

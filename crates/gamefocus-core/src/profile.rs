@@ -77,7 +77,7 @@ pub enum FocusAction {
 pub struct BoostPolicy {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    /// Provider ids to run when boost is on (e.g. "gamemode", "power_plan").
+    /// Provider ids to run when boost is on. An empty list runs none.
     #[serde(default)]
     pub providers: Vec<String>,
 }

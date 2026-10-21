@@ -1,0 +1,32 @@
+name = "macos-gaming"
+description = "Park common desktop apps. Keep the shell, Steam, and Discord. No Boost provider on macOS yet."
+
+[[matchers]]
+cmdline = "steamapps"
+
+[[park]]
+process_name = "Google Chrome"
+
+[[park]]
+process_name = "firefox"
+
+[[park]]
+process_name = "Telegram"
+
+[[whitelist]]
+process_name = "Steam"
+
+[[whitelist]]
+process_name = "Discord"
+
+[[whitelist]]
+process_name = "gamefocus"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = []
