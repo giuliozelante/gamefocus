@@ -44,15 +44,18 @@ jobs:
           ARCHIVE: ${{ matrix.archive }}
         run: |
           set -euo pipefail
-          mkdir -p dist
+          mkdir -p dist/stage/examples
           src="target/${TARGET}/release/${BIN}"
+          cp "$src" "dist/stage/${BIN}"
+          cp profiles/bundled/*.toml profiles/embedded/*.toml dist/stage/examples/
           # Relative dist/ path: absolute Windows paths like D:\… make BSD/GNU tar
           # treat D: as a remote host ("Cannot connect to D: resolve failed").
           if [[ "$ARCHIVE" == *.zip ]]; then
-            tar -C "$(dirname "$src")" -a -cf "dist/$ARCHIVE" "$(basename "$src")"
+            (cd dist/stage && tar -a -cf "../$ARCHIVE" "${BIN}" examples)
           else
-            tar -C "$(dirname "$src")" -czf "dist/$ARCHIVE" "$(basename "$src")"
+            tar -C dist/stage -czf "dist/$ARCHIVE" "${BIN}" examples
           fi
+          rm -rf dist/stage
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ${{ matrix.archive }}
@@ -82,5 +85,8 @@ jobs:
             | Linux x64 | `gamefocus-linux-x86_64.tar.gz` (CLI `gamefocus`) |
             | Windows x64 | `gamefocus-windows-x86_64.zip` (CLI `gamefocus.exe`) |
             | macOS arm64 | `gamefocus-macos-aarch64.tar.gz` (CLI `gamefocus`) |
+
+            Each archive includes the CLI binary plus an `examples/` folder of TOML profiles
+            for customization. With no `--profile`, the binary uses an embedded OS default.
 
             Tray/UI installers (`.deb` / `.msi` / `.dmg`) are not in this release yet.

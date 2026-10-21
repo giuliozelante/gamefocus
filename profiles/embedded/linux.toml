@@ -1,0 +1,41 @@
+name = "default-linux"
+description = "Safe embedded default: park common browsers and chat apps. GameMode boost when available."
+
+[[park]]
+process_name = "chrome"
+
+[[park]]
+process_name = "chromium"
+
+[[park]]
+process_name = "firefox"
+
+[[park]]
+process_name = "Discord"
+
+[[park]]
+process_name = "discord"
+
+[[park]]
+process_name = "spotify"
+
+[[park]]
+process_name = "Slack"
+
+[[park]]
+process_name = "slack"
+
+[[whitelist]]
+process_name = "steam"
+
+[[whitelist]]
+process_name = "gamefocus"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = ["gamemode"]

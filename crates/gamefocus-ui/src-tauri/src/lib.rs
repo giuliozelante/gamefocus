@@ -4,7 +4,7 @@ mod host;
 mod paths;
 
 use gamefocus_core::{
-    end_session, start_session, Profile, SessionMode, SessionSnapshot,
+    end_session, load_session_profile, start_session, Profile, SessionMode, SessionSnapshot,
 };
 use host::{platform_boosters, platform_controller};
 use paths::{default_snapshot_path, discover_profiles, resolve_profile_path};
@@ -25,7 +25,8 @@ struct AppState {
 
 #[derive(Debug, Clone)]
 struct UiState {
-    profile: PathBuf,
+    /// `None` means resolve user default.toml or the embedded OS profile.
+    profile: Option<PathBuf>,
     focus: bool,
     boost: bool,
     snapshot: PathBuf,
@@ -33,14 +34,10 @@ struct UiState {
 
 impl Default for UiState {
     fn default() -> Self {
-        let profile = discover_profiles()
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| PathBuf::from("profiles/bundled/linux-gaming.toml"));
         Self {
-            profile,
+            profile: None,
             focus: true,
-            boost: true,
+            boost: !cfg!(target_os = "macos"),
             snapshot: default_snapshot_path(),
         }
     }
@@ -68,22 +65,24 @@ struct ProfileOption {
 
 #[tauri::command]
 fn list_profiles() -> Vec<ProfileOption> {
-    discover_profiles()
-        .into_iter()
-        .map(|path| {
-            let name = Profile::load_file(&path)
-                .map(|p| p.name)
-                .unwrap_or_else(|_| {
-                    path.file_stem()
-                        .map(|s| s.to_string_lossy().into_owned())
-                        .unwrap_or_else(|| path.display().to_string())
-                });
-            ProfileOption {
-                path: path.display().to_string(),
-                name,
-            }
-        })
-        .collect()
+    let mut out = vec![ProfileOption {
+        path: String::new(),
+        name: "Default (auto)".into(),
+    }];
+    for path in discover_profiles() {
+        let name = Profile::load_file(&path)
+            .map(|p| p.name)
+            .unwrap_or_else(|_| {
+                path.file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| path.display().to_string())
+            });
+        out.push(ProfileOption {
+            path: path.display().to_string(),
+            name,
+        });
+    }
+    out
 }
 
 #[tauri::command]
@@ -102,10 +101,14 @@ fn set_toggles(state: State<'_, AppState>, focus: bool, boost: bool) -> Result<S
 
 #[tauri::command]
 fn set_profile(state: State<'_, AppState>, path: String) -> Result<StatusDto, String> {
-    let resolved = resolve_profile_path(&path).map_err(|e| e.to_string())?;
-    Profile::load_file(&resolved).map_err(|e| e.to_string())?;
     let mut ui = state.inner.lock().map_err(|e| e.to_string())?;
-    ui.profile = resolved;
+    if path.trim().is_empty() {
+        ui.profile = None;
+    } else {
+        let resolved = resolve_profile_path(&path).map_err(|e| e.to_string())?;
+        Profile::load_file(&resolved).map_err(|e| e.to_string())?;
+        ui.profile = Some(resolved);
+    }
     Ok(status_from_ui(&ui))
 }
 
@@ -143,7 +146,7 @@ fn status_from_ui(ui: &UiState) -> StatusDto {
                 focus_applied: snap.focus_applied,
                 boost_applied: snap.boost_applied,
                 suspended: snap.suspended.len(),
-                profile_path: ui.profile.display().to_string(),
+                profile_path: profile_label(ui),
                 focus: ui.focus,
                 boost: ui.boost,
             },
@@ -153,7 +156,7 @@ fn status_from_ui(ui: &UiState) -> StatusDto {
                 focus_applied: false,
                 boost_applied: false,
                 suspended: 0,
-                profile_path: ui.profile.display().to_string(),
+                profile_path: profile_label(ui),
                 focus: ui.focus,
                 boost: ui.boost,
             },
@@ -165,10 +168,17 @@ fn status_from_ui(ui: &UiState) -> StatusDto {
             focus_applied: false,
             boost_applied: false,
             suspended: 0,
-            profile_path: ui.profile.display().to_string(),
+            profile_path: profile_label(ui),
             focus: ui.focus,
             boost: ui.boost,
         }
+    }
+}
+
+fn profile_label(ui: &UiState) -> String {
+    match &ui.profile {
+        Some(p) => p.display().to_string(),
+        None => "default (auto)".into(),
     }
 }
 
@@ -176,7 +186,8 @@ fn run_start(ui: &UiState) -> Result<(), String> {
     if ui.snapshot.exists() {
         return Err("session already active; end it first".into());
     }
-    let profile = Profile::load_file(&ui.profile).map_err(|e| e.to_string())?;
+    let (profile, source) = load_session_profile(ui.profile.as_deref())?;
+    info!(%source, "profile loaded for tray session");
     let mode = SessionMode {
         focus: Some(ui.focus),
         boost: Some(ui.boost),
@@ -228,9 +239,21 @@ fn show_main_window(app: &AppHandle) {
 
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let focus_item = CheckMenuItem::with_id(app, "focus", "Focus", true, true, None::<&str>)?;
-    let boost_item = CheckMenuItem::with_id(app, "boost", "Boost", true, true, None::<&str>)?;
-    let start_item = MenuItem::with_id(app, "start", "Start session", true, None::<&str>)?;
-    let end_item = MenuItem::with_id(app, "end", "End session", true, None::<&str>)?;
+    let boost_enabled = !cfg!(target_os = "macos");
+    let boost_item = CheckMenuItem::with_id(
+        app,
+        "boost",
+        if boost_enabled {
+            "Boost"
+        } else {
+            "Boost (not on macOS)"
+        },
+        boost_enabled,
+        boost_enabled,
+        None::<&str>,
+    )?;
+    let start_item = MenuItem::with_id(app, "start", "Start gaming", true, None::<&str>)?;
+    let end_item = MenuItem::with_id(app, "end", "Stop gaming", true, None::<&str>)?;
     let open_item = MenuItem::with_id(app, "open", "Open controls…", true, None::<&str>)?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
     let sep = PredefinedMenuItem::separator(app)?;
@@ -367,7 +390,7 @@ mod tests {
     #[test]
     fn status_inactive_when_no_snapshot() {
         let ui = UiState {
-            profile: PathBuf::from("profiles/bundled/linux-gaming.toml"),
+            profile: None,
             focus: true,
             boost: false,
             snapshot: PathBuf::from("/tmp/gamefocus-ui-test-missing-snapshot.json"),

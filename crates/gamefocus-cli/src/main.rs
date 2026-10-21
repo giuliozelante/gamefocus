@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use gamefocus_core::{
-    default_snapshot_path, discover_profiles, end_session, park_targets, resolve_profile_path,
+    default_snapshot_path, discover_profiles, end_session, load_session_profile, park_targets,
     start_session, BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
 };
 use std::fs;
@@ -16,11 +16,11 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start a focus/boost session from a profile
+    /// Start a focus/boost session (embedded OS default if no --profile)
     Start {
-        /// Path to a profile TOML
+        /// Path to a profile TOML. Omit to use ~/.config/gamefocus/default.toml or the embedded default.
         #[arg(long, short)]
-        profile: PathBuf,
+        profile: Option<PathBuf>,
         /// Override Focus on/off
         #[arg(long, value_enum)]
         focus: Option<OnOff>,
@@ -87,14 +87,14 @@ fn snapshot_or_default(snapshot: Option<PathBuf>) -> PathBuf {
 }
 
 fn cmd_start(
-    profile_path: PathBuf,
+    profile_path: Option<PathBuf>,
     focus: Option<OnOff>,
     boost: Option<OnOff>,
     snapshot: Option<PathBuf>,
     dry_run: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let resolved = resolve_profile_path(&profile_path)?;
-    let profile = Profile::load_file(&resolved)?;
+    let (profile, source) = load_session_profile(profile_path.as_deref())?;
+    info!(%source, "profile loaded");
     let snapshot_path = snapshot_or_default(snapshot);
     let mode = SessionMode {
         focus: focus.map(OnOff::as_bool),

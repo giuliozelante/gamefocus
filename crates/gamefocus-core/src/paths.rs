@@ -26,6 +26,118 @@ fn resolve_snapshot_path(
     PathBuf::from("gamefocus-session.json")
 }
 
+/// Where a session profile came from (for logs and UI).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProfileSource {
+    /// Explicit `--profile` or tray selection.
+    Path(PathBuf),
+    /// `default.toml` under the user config dir.
+    UserDefault(PathBuf),
+    /// Compile-time embedded OS preset.
+    Embedded(&'static str),
+}
+
+impl std::fmt::Display for ProfileSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Path(p) | Self::UserDefault(p) => write!(f, "{}", p.display()),
+            Self::Embedded(os) => write!(f, "embedded:{os}"),
+        }
+    }
+}
+
+/// User-editable default: `$XDG_CONFIG_HOME/gamefocus/default.toml`, else
+/// `~/.config/…`, else `%APPDATA%\gamefocus\default.toml` on Windows.
+pub fn user_default_profile_path() -> PathBuf {
+    user_default_profile_path_from_env(|key| env::var_os(key))
+}
+
+fn user_default_profile_path_from_env(
+    mut get: impl FnMut(&str) -> Option<std::ffi::OsString>,
+) -> PathBuf {
+    if let Some(xdg) = get("XDG_CONFIG_HOME") {
+        return PathBuf::from(xdg).join("gamefocus").join("default.toml");
+    }
+    if let Some(appdata) = get("APPDATA") {
+        return PathBuf::from(appdata).join("gamefocus").join("default.toml");
+    }
+    if let Some(home) = get("HOME") {
+        return PathBuf::from(home)
+            .join(".config")
+            .join("gamefocus")
+            .join("default.toml");
+    }
+    PathBuf::from("gamefocus-default.toml")
+}
+
+/// Embedded TOML for the compile-time target OS.
+pub fn embedded_default_toml() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        include_str!("../../../profiles/embedded/linux.toml")
+    }
+    #[cfg(target_os = "windows")]
+    {
+        include_str!("../../../profiles/embedded/windows.toml")
+    }
+    #[cfg(target_os = "macos")]
+    {
+        include_str!("../../../profiles/embedded/macos.toml")
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        include_str!("../../../profiles/embedded/linux.toml")
+    }
+}
+
+fn embedded_os_label() -> &'static str {
+    #[cfg(target_os = "linux")]
+    {
+        "linux"
+    }
+    #[cfg(target_os = "windows")]
+    {
+        "windows"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "macos"
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        "linux"
+    }
+}
+
+/// Load a session profile.
+///
+/// Order: explicit path → user `default.toml` if present → embedded OS default.
+pub fn load_session_profile(
+    explicit: Option<&Path>,
+) -> Result<(crate::Profile, ProfileSource), String> {
+    load_session_profile_with(explicit, &user_default_profile_path())
+}
+
+fn load_session_profile_with(
+    explicit: Option<&Path>,
+    user_default: &Path,
+) -> Result<(crate::Profile, ProfileSource), String> {
+    if let Some(path) = explicit {
+        let resolved = resolve_profile_path(path)?;
+        let profile = crate::Profile::load_file(&resolved).map_err(|e| e.to_string())?;
+        return Ok((profile, ProfileSource::Path(resolved)));
+    }
+    if user_default.is_file() {
+        let profile = crate::Profile::load_file(user_default).map_err(|e| e.to_string())?;
+        return Ok((
+            profile,
+            ProfileSource::UserDefault(user_default.to_path_buf()),
+        ));
+    }
+    let profile = crate::Profile::parse_toml(embedded_default_toml()).map_err(|e| e.to_string())?;
+    Ok((profile, ProfileSource::Embedded(embedded_os_label())))
+}
+
 /// Resolve a profile path; must exist and be a file.
 pub fn resolve_profile_path(path: impl AsRef<Path>) -> Result<PathBuf, String> {
     let path = path.as_ref();
@@ -163,5 +275,94 @@ mod tests {
         let p = resolve_profile_path("bundled/linux-gaming.toml")
             .or_else(|_| resolve_profile_path("profiles/bundled/linux-gaming.toml"));
         assert!(p.is_ok(), "{p:?}");
+    }
+
+    #[test]
+    fn user_default_prefers_xdg_config_home() {
+        let path = user_default_profile_path_from_env(|key| match key {
+            "XDG_CONFIG_HOME" => Some(std::ffi::OsString::from("/tmp/xdg-config")),
+            _ => None,
+        });
+        assert_eq!(
+            path,
+            PathBuf::from("/tmp/xdg-config/gamefocus/default.toml")
+        );
+    }
+
+    #[test]
+    fn user_default_uses_appdata_when_xdg_unset() {
+        let path = user_default_profile_path_from_env(|key| match key {
+            "XDG_CONFIG_HOME" => None,
+            "APPDATA" => Some(std::ffi::OsString::from(r"C:\Users\me\AppData\Roaming")),
+            _ => None,
+        });
+        assert_eq!(
+            path,
+            PathBuf::from(r"C:\Users\me\AppData\Roaming")
+                .join("gamefocus")
+                .join("default.toml")
+        );
+    }
+
+    #[test]
+    fn embedded_default_parses_for_host_os() {
+        let profile = crate::Profile::parse_toml(embedded_default_toml()).expect("embedded");
+        assert!(!profile.name.is_empty());
+        assert!(!profile.park.is_empty());
+        assert!(profile.focus.protect_shell);
+    }
+
+    #[test]
+    fn load_session_profile_uses_explicit_path() {
+        let path = repo_root_guess().join("profiles/bundled/linux-gaming.toml");
+        let (profile, source) = load_session_profile(Some(&path)).expect("load");
+        assert_eq!(profile.name, "linux-gaming");
+        assert!(matches!(source, ProfileSource::Path(_)));
+    }
+
+    #[test]
+    fn load_session_profile_falls_back_to_embedded_without_user_default() {
+        // Relies on the test environment not having a real user default.toml that
+        // shadows embedded. CI runners are clean; local override would change this.
+        let user = user_default_profile_path();
+        if user.is_file() {
+            return;
+        }
+        let (profile, source) = load_session_profile(None).expect("load");
+        assert!(profile.name.starts_with("default-"));
+        assert!(matches!(source, ProfileSource::Embedded(_)));
+    }
+
+    #[test]
+    fn load_session_profile_prefers_existing_user_default_file() {
+        let dir = std::env::temp_dir().join(format!(
+            "gamefocus-profile-test-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).expect("mkdir");
+        let path = dir.join("default.toml");
+        fs::write(
+            &path,
+            r#"
+name = "user-default"
+[[park]]
+process_name = "chrome"
+"#,
+        )
+        .expect("write");
+        let (profile, source) = load_session_profile_with(None, &path).expect("load");
+        assert_eq!(profile.name, "user-default");
+        assert!(matches!(source, ProfileSource::UserDefault(_)));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn load_session_profile_embedded_when_user_default_missing() {
+        let missing = std::env::temp_dir().join("gamefocus-no-such-default.toml");
+        let _ = fs::remove_file(&missing);
+        let (profile, source) = load_session_profile_with(None, &missing).expect("load");
+        assert!(profile.name.starts_with("default-"));
+        assert!(matches!(source, ProfileSource::Embedded(_)));
     }
 }

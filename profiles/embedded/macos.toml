@@ -1,0 +1,32 @@
+name = "default-macos"
+description = "Safe embedded default: park common browsers and chat apps. No Boost provider on macOS yet."
+
+[[park]]
+process_name = "Google Chrome"
+
+[[park]]
+process_name = "firefox"
+
+[[park]]
+process_name = "Discord"
+
+[[park]]
+process_name = "Spotify"
+
+[[park]]
+process_name = "Slack"
+
+[[whitelist]]
+process_name = "Steam"
+
+[[whitelist]]
+process_name = "gamefocus"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = []

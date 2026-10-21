@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Embedded OS default profiles so `gamefocus start` works with no `--profile`
+- Profile resolve order: `--profile` → user `default.toml` → embedded
+- Release archives include an `examples/` folder of TOML profiles
+- Tray **Start gaming** / **Stop gaming**; Boost disabled on macOS
+
+### Changed
+
+- README quickstart for casual users; profile docs moved to `docs/PROFILES.md`
+
 ## [0.1.0] - 2026-10-21
 
 ### Added
