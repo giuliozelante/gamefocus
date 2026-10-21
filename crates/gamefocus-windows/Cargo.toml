@@ -3,7 +3,7 @@ name = "gamefocus-windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Windows Focus, power-plan Boost, and working-set Boost"
+description = "Windows Focus and Boost providers (power plan, working set, CPU affinity)"
 
 [dependencies]
 gamefocus-core = { workspace = true }

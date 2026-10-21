@@ -227,6 +227,7 @@ fn platform_boosters() -> Vec<Box<dyn BoostProvider>> {
         vec![
             Box::new(gamefocus_windows::PowerPlanBoost::system()),
             Box::new(gamefocus_windows::WorkingSetBoost::system()),
+            Box::new(gamefocus_windows::CpuAffinityBoost::system()),
         ]
     }
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
