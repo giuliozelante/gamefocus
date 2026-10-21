@@ -1,10 +1,10 @@
 # Razer Cortex — competitive inventory (Phase 0.5)
 
-**Status:** partial (static + public product knowledge). Full post-install `Cortex.exe` REA is **blocked** on this machine (no Windows VM / qemu / VirtualBox).
+**Status:** complete for v1 planning (Tiny10 lab install + host-side PE strings/imports/exports). Deep decompiler REA blocked (`GHIDRA_INSTALL_DIR` unset; Hopper/IDA not configured). Checklist is enough for clean-room Focus/Boost design.
 
-**Rules:** documentation only. No decompiled code, assets, or string tables copied into product sources.
+**Rules:** documentation only. No decompiled code, assets, or string tables copied into product sources. Extracted binaries stay under `~/VMs/gamefocus-windows/shared/extracted/` — **not** in git.
 
-## Artifact analyzed
+## Artifact analyzed (installer bootstrapper)
 
 | Item | Value |
 |------|--------|
@@ -21,15 +21,7 @@ The “Cortex installer” on disk is an **online bootstrapper**, not the Game B
 - Manifest: `manifest3.razerapi.com`
 - Bundled binaries are installer/UI/analytics (`RazerInstaller.exe`, `Razer.Installer.*.dll`, `Razer.Analytics.dll`, AWS Kinesis SDK, NLog, PInvoke.*).
 
-**Implication:** REA of this EXE cannot inventory Game Booster behavior. That requires installing inside a Windows VM (so the real `Cortex.exe` / helpers are downloaded), then analyzing those binaries.
-
-## Follow-up when a Windows VM is available
-
-1. Snapshot a clean Win10/11 VM.
-2. Install from the same installer; note install path, services, scheduled tasks.
-3. REA: `open_binary` on `Cortex.exe` and helpers; strings / imports for process suspend, power plan, memory trim, overlay.
-4. Optional: one Game Booster session + Process Explorer to list suspended processes.
-5. Append findings to this doc under “Post-install observations”.
+**Implication:** REA of this EXE cannot inventory Game Booster behavior. That requires installing inside a Windows VM (so the real product bits are downloaded), then analyzing those binaries.
 
 ## Public / marketing-level feature map (informational)
 
@@ -40,15 +32,15 @@ Mapped to **gamefocus** Focus (A) / Boost (B) / **won’t copy**:
 | Close / suspend background apps while gaming | **Focus (A)** | Implement (suspend preferred; soft-stop fallback) |
 | Whitelist (e.g. Discord, chat) | **Focus (A)** | Implement via profile TOML |
 | Auto detect games / launchers | **Focus (A)** | Implement via matchers (Steam/Proton/cmdline) |
-| High-performance power plan | **Boost (B)** | Windows provider (Phase 4) |
-| Memory “cleanup” / working-set trim | **Boost (B)** | Only on already-suspended *background* processes; never scrub game + anti-cheat |
+| High-performance power plan | **Boost (B)** | Windows `power_plan` provider |
+| Memory “cleanup” / working-set trim | **Boost (B)** | Windows `working_set` on Focus-suspended pids only; never scrub game + anti-cheat |
 | GPU / driver “optimizer” packs | **won’t copy** | Out of scope |
 | FPS / in-game overlay | **won’t copy** | Out of scope (v1 non-goal) |
 | Rewards / account / store hooks | **won’t copy** | Out of scope |
 | Dehumidifier / ambient toys | **won’t copy** | Out of scope |
 | Telemetry / analytics (installer already ships `Razer.Analytics.dll` + Kinesis) | **won’t copy** | No telemetry by default |
 
-## Static installer observations (this session)
+## Static installer observations
 
 - Nested payload magic: `MZ` (.NET assembly).
 - Installer configuration points at Razer discovery/manifest CDN — product bits arrive after network install.
@@ -59,49 +51,86 @@ Mapped to **gamefocus** Focus (A) / Boost (B) / **won’t copy**:
 
 - Prefer **Focus before launch** for competitive titles; avoid Boost that touches the protected game process.
 - Document privilege needs (user vs admin/polkit) when Boost providers need elevation.
-- Treat any future Cortex RE notes as a checklist only — clean-room Rust remains the implementation source.
+- Treat Cortex RE notes as a checklist only — clean-room Rust remains the implementation source.
 
-## Lab VM (added)
+## Lab VM
 
-Throwaway Tiny10 via `dockur/windows` at `~/VMs/gamefocus-windows`.
+Throwaway Tiny10 via `dockur/windows` at `~/VMs/gamefocus-windows` (`ADAPTER=e1000`).
+
 - Viewer: http://127.0.0.1:8006
 - RDP: 127.0.0.1:3389 (`Docker` / `admin`)
 - Installer on guest Shared (`Z:\RazerCortexInstaller.exe`)
-- After install, copy `Cortex.exe` helpers into `~/VMs/gamefocus-windows/shared/extracted/` for REA on the host.
+- Host extracts: `~/VMs/gamefocus-windows/shared/extracted/`
+- Start again: `cd ~/VMs/gamefocus-windows && docker compose up -d`
 
 ## Post-install observations (2026-10-20)
 
-Installed via `dockur/windows` Tiny10 lab (`~/VMs/gamefocus-windows`, `ADAPTER=e1000`). Product bits land at:
+Installed product path:
 
 `C:\Program Files (x86)\Razer\Razer Cortex\`
 
-### Key binaries (host copy under `~/VMs/gamefocus-windows/shared/extracted/bin/` — **not** committed to git)
+Cortex is downloaded by the Razer Gaming Software hub (~426 MB), not embedded in `RazerCortexInstaller.exe`.
+
+### Key binaries (host copy under `shared/extracted/bin/` — **not** committed)
 
 | File | Role (from names + strings) |
 |------|-----------------------------|
 | `RazerCortex.exe` / `.Shell.exe` | Main UI shell |
 | `RazerCortexBoostHelper.exe` | Boost helper process |
-| `Boost.dll` | Core Game Booster engine |
-| `RazerCortex.GameBoost.dll` | Managed Game Boost layer |
+| `Boost.dll` | Native Game Booster engine (PE32+ x64) |
+| `RazerCortex.GameBoost.dll` | Managed Game Boost settings / item lists |
 | `RazerCortex.SystemOptimize.dll` / `SystemClean.dll` / `SystemSetting.dll` | System tweak modules |
 | `RazerCortex.GameOverlay.dll` / `GameClip.dll` / `FPSRunner.exe` | Overlay / clips / FPS — **won't copy** |
 | AWS Kinesis SDK (in install dir) | Telemetry — **won't copy** |
 
-### `Boost.dll` behavioral checklist (`CBoostManage::StartBoost` / `Restore`)
+### `Boost.dll` identity
 
-| Module | Bucket for gamefocus |
-|--------|----------------------|
-| Process Boost / Restore | **Focus (A)** — process park/restore |
-| BackgroundApps Boost | **Focus (A)** |
-| Service Boost | **out of scope** by default |
-| Power Boost | **Boost (B)** — power plan |
-| Ram Boost (`EmptyWorkingSet`) | **Boost (B)** — background only |
-| Clipboard / Desktop / Cortana / Telemetry disable | **won't copy** / optional later |
-| Key / WinKey disabler | **won't copy** |
-| CPU unpark / affinity | **Boost (B)** (Linux: GameMode-ish) |
+| Field | Value |
+|-------|--------|
+| SHA-256 | `ac11cd0c8ab7bb1a5a0b874dbb697856821e1affd085f5b42a9faa87c229dcd7` |
+| Size | 460488 bytes |
+| Format | PE32+ DLL x86-64 |
+| PDB path (string) | `...\razer.gameboost\src\BoostDLL\Razer.BoostDll\...` |
 
-Whitelist language appears in `Boost.dll` (`WhiteList` / `Whitelist`). Full string dump: `~/VMs/gamefocus-windows/shared/extracted/strings-inventory.md`.
+### `CBoostManage::StartBoost` / `Restore` module map
 
-### Installer note
+| Module | Evidence | Bucket for gamefocus |
+|--------|----------|----------------------|
+| Process Boost / Restore | `CProcessBoost::*`; log `kill process %s success/failed`; restore relaunches via `ShellExecute(Ex)` | **Focus (A)** — but Cortex **terminates + relaunches**; gamefocus prefers **suspend/resume** |
+| BackgroundApps Boost | `CBackgroundAppsBoost::*` registry modify/restore | **Focus (A)** / optional |
+| Service Boost | `ControlService` / `EnumDependentServicesW`; `__GetServicesDetail` | **out of scope** by default |
+| Power Boost | power-plan name/count strings; `GUID_DEVICE_POWER_POLICY_VIDEO_BRIGHTNESS` | **Boost (B)** — power plan |
+| Ram Boost | import `K32EmptyWorkingSet` | **Boost (B)** — background only |
+| CPU unpark | `CCpuUnarkBoost::ModifyCoreUnparkReg` | **Boost (B)** (Linux: GameMode-ish) |
+| CPU affinity | `SetProcessAffinityMask` / whitelist file APIs | **Boost (B)** optional |
+| Clipboard / Desktop / Cortana / Telemetry / ReportProblems | dedicated `*Boost` classes; Cortana string: `Cortana.exe is suspended` | **won't copy** / optional later |
+| Key / WinKey disabler | StartBoost readiness logs | **won't copy** |
 
-Cortex is downloaded by the Razer Gaming Software hub (~426 MB), not embedded in `RazerCortexInstaller.exe`.
+### PE imports that matter (checklist, not a recipe)
+
+`KERNEL32`: `OpenProcess`, `TerminateProcess`, `CreateToolhelp32Snapshot`, `Process32FirstW`/`NextW`, `K32EmptyWorkingSet`, `SetProcessAffinityMask` / `GetProcessAffinityMask`.
+
+`ADVAPI32`: registry R/W (`RegOpenKeyExW` … `RegSetValueExW`), `ControlService`, `OpenProcessToken`.
+
+`SHELL32`: `ShellExecuteW` / `ShellExecuteExW` (process restore path).
+
+**Not imported** on this `Boost.dll`: `NtSuspendProcess` / `SuspendThread`. Process “boost” here is kill+relaunch; only some specialty modules (e.g. Cortana) mention suspend in strings.
+
+### Public exports (API surface names only)
+
+`__InitModule`, `__ReleaseModule`, `__StartBoost`, `__StartSafeBoost`, `__Restore`, `__Stop`, `__IsBoosted`, `__UpdateConfiguartion`, `__GetProcessesDetail`, `__GetServicesDetail`, `__SetGamePid`, `__SetGamePaths`, CPU affinity/unpark getters/setters/whitelist helpers, `__ExitGameDesk`.
+
+### Managed layer (`RazerCortex.GameBoost.dll`)
+
+Type/method name fragments only: process / Windows-service / third-party-service / special boost *items*, hotkey start, Chroma hooks. Confirms UI configures per-item toggles — maps to gamefocus profile TOML sections, not a shared binary.
+
+### Full string dump (local only)
+
+`~/VMs/gamefocus-windows/shared/extracted/strings-inventory.md`
+
+## Design takeaway for gamefocus
+
+1. **Focus ≠ Cortex Process Boost.** Prefer `SIGSTOP`/`SIGCONT` (Linux) and Windows suspend APIs over terminate+relaunch.
+2. **Whitelist** belongs on Focus park lists (and optionally Boost affinity filters) — profile-driven.
+3. **Boost** = reversible power / GameMode / working-set trim on already-parked backgrounds — never the protected game.
+4. Overlay, rewards, telemetry, defrag, key remaps stay non-goals.
