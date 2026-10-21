@@ -46,8 +46,10 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           src="target/${TARGET}/release/${BIN}"
+          # Relative dist/ path: absolute Windows paths like D:\… make BSD/GNU tar
+          # treat D: as a remote host ("Cannot connect to D: resolve failed").
           if [[ "$ARCHIVE" == *.zip ]]; then
-            tar -C "$(dirname "$src")" -a -cf "$GITHUB_WORKSPACE/dist/$ARCHIVE" "$(basename "$src")"
+            tar -C "$(dirname "$src")" -a -cf "dist/$ARCHIVE" "$(basename "$src")"
           else
             tar -C "$(dirname "$src")" -czf "dist/$ARCHIVE" "$(basename "$src")"
           fi
@@ -72,3 +74,13 @@ jobs:
         with:
           files: dist/**
           generate_release_notes: true
+          body: |
+            ## Platforms
+
+            | OS | Artifact |
+            |----|----------|
+            | Linux x64 | `gamefocus-linux-x86_64.tar.gz` (CLI `gamefocus`) |
+            | Windows x64 | `gamefocus-windows-x86_64.zip` (CLI `gamefocus.exe`) |
+            | macOS arm64 | `gamefocus-macos-aarch64.tar.gz` (CLI `gamefocus`) |
+
+            Tray/UI installers (`.deb` / `.msi` / `.dmg`) are not in this release yet.
