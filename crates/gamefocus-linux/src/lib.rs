@@ -105,11 +105,23 @@ fn signal_pid(pid: u32, kind: SignalKind) -> Result<()> {
     }
 }
 
-/// Soft-fail GameMode provider: uses `gamemoded` request via `gamemoderun`-style
-/// dbus helper if `busctl` / `gamemoded` is present. v1 records intent only when
-/// the `gamemoded --status` binary exists; full D-Bus client comes next.
+/// Soft-fail GameMode provider: registers this process with `gamemoded` over D-Bus.
 pub struct GameModeBoost {
     active: bool,
+}
+
+/// `busctl --user call …` argv for GameMode RegisterGame / UnregisterGame.
+fn gamemode_busctl_args(method: &str, pid: u32) -> Vec<String> {
+    vec![
+        "--user".into(),
+        "call".into(),
+        "com.feralinteractive.GameMode".into(),
+        "/com/feralinteractive/GameMode".into(),
+        "com.feralinteractive.GameMode".into(),
+        method.into(),
+        "i".into(),
+        pid.to_string(),
+    ]
 }
 
 impl GameModeBoost {
@@ -140,25 +152,16 @@ impl BoostProvider for GameModeBoost {
                 message: "gamemoded not found; install Feral GameMode".into(),
             });
         }
-        // Best-effort: register a client via gamemoded CLI if present.
+        let pid = std::process::id();
         let status = Command::new("busctl")
-            .args([
-                "--user",
-                "call",
-                "com.feralinteractive.GameMode",
-                "/com/feralinteractive/GameMode",
-                "com.feralinteractive.GameMode.Client",
-                "RegisterGame",
-                "i",
-                &std::process::id().to_string(),
-            ])
+            .args(gamemode_busctl_args("RegisterGame", pid))
             .output();
         match status {
             Ok(out) if out.status.success() => {
                 info!("GameMode RegisterGame succeeded");
                 Ok(BoostHandle {
                     provider_id: "gamemode".into(),
-                    payload: std::process::id().to_string(),
+                    payload: pid.to_string(),
                 })
             }
             Ok(out) => {
@@ -178,17 +181,11 @@ impl BoostProvider for GameModeBoost {
 
     fn rollback(&self, handle: BoostHandle) -> Result<()> {
         let _ = self.active;
+        let Ok(pid) = handle.payload.parse::<u32>() else {
+            return Ok(());
+        };
         let _ = Command::new("busctl")
-            .args([
-                "--user",
-                "call",
-                "com.feralinteractive.GameMode",
-                "/com/feralinteractive/GameMode",
-                "com.feralinteractive.GameMode.Client",
-                "UnregisterGame",
-                "i",
-                &handle.payload,
-            ])
+            .args(gamemode_busctl_args("UnregisterGame", pid))
             .output();
         Ok(())
     }
@@ -203,4 +200,22 @@ fn which(bin: &str) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::gamemode_busctl_args;
+
+    #[test]
+    fn register_game_uses_gamemode_interface_not_client() {
+        let args = gamemode_busctl_args("RegisterGame", 42);
+        assert_eq!(
+            args[4], "com.feralinteractive.GameMode",
+            "GameMode 1.x exposes RegisterGame on the main interface, not .Client"
+        );
+        assert!(
+            !args.iter().any(|a| a.contains(".Client")),
+            "stale .Client iface: {args:?}"
+        );
+    }
 }
