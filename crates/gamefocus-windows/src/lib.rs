@@ -1,4 +1,4 @@
-//! Windows Focus (suspend/resume) and power-plan Boost.
+//! Windows Focus (suspend/resume), power-plan Boost, and working-set Boost.
 
 /// GUID printed by `powercfg /getactivescheme`.
 pub fn parse_active_scheme(text: &str) -> Option<String> {
@@ -37,7 +37,7 @@ impl<S: SchemeStore> BoostProvider for PowerPlanBoost<S> {
         "power_plan"
     }
 
-    fn apply(&self) -> Result<BoostHandle> {
+    fn apply(&self, _ctx: &gamefocus_core::BoostContext<'_>) -> Result<BoostHandle> {
         let previous = self.store.active_scheme()?;
         if previous != HIGH_PERFORMANCE_SCHEME {
             self.store.set_active(HIGH_PERFORMANCE_SCHEME)?;
@@ -109,6 +109,105 @@ impl SchemeStore for PowercfgStore {
 impl PowerPlanBoost<PowercfgStore> {
     pub fn system() -> Self {
         Self::new(PowercfgStore)
+    }
+}
+
+pub trait WorkingSetOps: Send + Sync {
+    fn empty_working_set(&self, pid: u32) -> Result<()>;
+}
+
+/// Trims the working set of processes Focus just suspended. Rollback is a no-op.
+pub struct WorkingSetBoost<O> {
+    ops: O,
+}
+
+impl<O> WorkingSetBoost<O> {
+    pub fn new(ops: O) -> Self {
+        Self { ops }
+    }
+}
+
+impl WorkingSetBoost<SystemWorkingSetOps> {
+    pub fn system() -> Self {
+        Self::new(SystemWorkingSetOps)
+    }
+}
+
+impl<O: WorkingSetOps> BoostProvider for WorkingSetBoost<O> {
+    fn id(&self) -> &'static str {
+        "working_set"
+    }
+
+    fn apply(&self, ctx: &gamefocus_core::BoostContext<'_>) -> Result<BoostHandle> {
+        let mut trimmed = Vec::new();
+        for proc in ctx.suspended {
+            if proc.action != "suspend" {
+                continue;
+            }
+            match self.ops.empty_working_set(proc.pid) {
+                Ok(()) => trimmed.push(proc.pid.to_string()),
+                Err(err) => tracing::warn!(pid = proc.pid, %err, "working_set soft-fail"),
+            }
+        }
+        Ok(BoostHandle {
+            provider_id: self.id().into(),
+            payload: trimmed.join(","),
+        })
+    }
+
+    fn rollback(&self, _handle: BoostHandle) -> Result<()> {
+        Ok(())
+    }
+}
+
+pub struct SystemWorkingSetOps;
+
+impl WorkingSetOps for SystemWorkingSetOps {
+    fn empty_working_set(&self, pid: u32) -> Result<()> {
+        #[cfg(windows)]
+        {
+            empty_working_set_win32(pid)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = pid;
+            Err(Error::Boost {
+                provider: "working_set".into(),
+                message: "EmptyWorkingSet is only available on Windows".into(),
+            })
+        }
+    }
+}
+
+#[cfg(windows)]
+fn empty_working_set_win32(pid: u32) -> Result<()> {
+    use std::os::raw::c_void;
+    const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+    const PROCESS_SET_QUOTA: u32 = 0x0100;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut c_void;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+        fn GetLastError() -> u32;
+        fn K32EmptyWorkingSet(handle: *mut c_void) -> i32;
+    }
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_SET_QUOTA, 0, pid);
+        if handle.is_null() {
+            return Err(Error::Boost {
+                provider: "working_set".into(),
+                message: format!("OpenProcess {}", GetLastError()),
+            });
+        }
+        let ok = K32EmptyWorkingSet(handle);
+        CloseHandle(handle);
+        if ok == 0 {
+            return Err(Error::Boost {
+                provider: "working_set".into(),
+                message: format!("EmptyWorkingSet {}", GetLastError()),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -393,11 +492,42 @@ mod tests {
         let previous = "381b4222-f694-41f0-9685-ff5bb260df2e";
         let store = MemScheme::new(previous);
         let boost = PowerPlanBoost::new(store);
-        let handle = boost.apply().expect("apply");
+        let ctx = gamefocus_core::BoostContext { suspended: &[] };
+        let handle = boost.apply(&ctx).expect("apply");
         assert_eq!(handle.payload, previous);
         assert_eq!(boost.store.last_set(), Some(HIGH_PERFORMANCE_SCHEME.to_string()));
         boost.rollback(handle).expect("rollback");
         assert_eq!(boost.store.last_set(), Some(previous.to_string()));
+    }
+
+    #[derive(Default)]
+    struct LogWorkingSet {
+        pids: Mutex<Vec<u32>>,
+    }
+
+    impl WorkingSetOps for LogWorkingSet {
+        fn empty_working_set(&self, pid: u32) -> Result<()> {
+            self.pids.lock().expect("pids").push(pid);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn working_set_trims_suspended_pids() {
+        let ops = LogWorkingSet::default();
+        let boost = WorkingSetBoost::new(ops);
+        let suspended = [gamefocus_core::SuspendedProcess {
+            pid: 42,
+            name: "chrome.exe".into(),
+            action: "suspend".into(),
+        }];
+        let ctx = gamefocus_core::BoostContext {
+            suspended: &suspended,
+        };
+        let handle = boost.apply(&ctx).expect("apply");
+        assert_eq!(handle.payload, "42");
+        assert_eq!(*boost.ops.pids.lock().expect("pids"), vec![42]);
+        boost.rollback(handle).expect("rollback");
     }
 
     #[test]

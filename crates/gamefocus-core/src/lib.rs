@@ -13,7 +13,7 @@ pub use profile::{
     BoostPolicy, FocusAction, FocusPolicy, Matcher, Profile, WhitelistEntry,
 };
 pub use session::{
-    end_session, start_session, SessionMode, SessionSnapshot, SuspendedProcess,
+    end_session, start_session, BoostContext, SessionMode, SessionSnapshot, SuspendedProcess,
 };
 
 /// Platform capability used by the CLI to pick a backend.
@@ -39,10 +39,10 @@ pub struct ProcessInfo {
     pub cmdline: Option<String>,
 }
 
-/// Optional OS boost adapters (GameMode, power plan, …). Soft-fail per provider.
+/// Optional OS boost adapters (GameMode, power plan, working set, …). Soft-fail per provider.
 pub trait BoostProvider: Send + Sync {
     fn id(&self) -> &'static str;
-    fn apply(&self) -> Result<BoostHandle>;
+    fn apply(&self, ctx: &BoostContext<'_>) -> Result<BoostHandle>;
     fn rollback(&self, handle: BoostHandle) -> Result<()>;
 }
 

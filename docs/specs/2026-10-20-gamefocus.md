@@ -38,7 +38,7 @@ Done when:
 |------|------|
 | `crates/gamefocus-core` | Profiles, session, Focus/Boost traits |
 | `crates/gamefocus-linux` | SIGSTOP/SIGCONT + GameMode |
-| `crates/gamefocus-windows` | Windows Focus and power-plan Boost |
+| `crates/gamefocus-windows` | Windows Focus, power-plan Boost, working-set Boost |
 | `crates/gamefocus-macos` | macOS Focus (`SIGSTOP` / `SIGCONT`). No Boost provider yet |
 | `crates/gamefocus-cli` | `gamefocus` CLI |
 | `crates/gamefocus-ui` | Tauri tray (its own issue) |

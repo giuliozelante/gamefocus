@@ -129,7 +129,14 @@ fn matches_whitelist(info: &ProcessInfo, profile: &Profile) -> bool {
     })
 }
 
+/// Context passed to Boost after Focus has run.
+#[derive(Debug, Clone, Copy)]
+pub struct BoostContext<'a> {
+    pub suspended: &'a [SuspendedProcess],
+}
+
 /// Apply Focus and/or Boost according to profile + mode overrides.
+/// Focus always runs before Boost so providers can see parked pids.
 pub fn start_session(
     profile: &Profile,
     mode: SessionMode,
@@ -140,22 +147,6 @@ pub fn start_session(
         profile_name: profile.name.clone(),
         ..Default::default()
     };
-
-    if mode.boost_enabled(profile) {
-        for provider in boosters {
-            if !profile.boost.providers.iter().any(|p| p == provider.id()) {
-                continue;
-            }
-            match provider.apply() {
-                Ok(handle) => {
-                    info!(provider = provider.id(), "boost applied");
-                    snap.boost_handles.push(handle.into());
-                    snap.boost_applied = true;
-                }
-                Err(err) => warn!(provider = provider.id(), %err, "boost soft-fail"),
-            }
-        }
-    }
 
     if mode.focus_enabled(profile) {
         if profile.park.is_empty() {
@@ -195,6 +186,25 @@ pub fn start_session(
         }
         snap.focus_applied = true;
         info!(count = snap.suspended.len(), "focus applied");
+    }
+
+    if mode.boost_enabled(profile) {
+        let ctx = BoostContext {
+            suspended: &snap.suspended,
+        };
+        for provider in boosters {
+            if !profile.boost.providers.iter().any(|p| p == provider.id()) {
+                continue;
+            }
+            match provider.apply(&ctx) {
+                Ok(handle) => {
+                    info!(provider = provider.id(), "boost applied");
+                    snap.boost_handles.push(handle.into());
+                    snap.boost_applied = true;
+                }
+                Err(err) => warn!(provider = provider.id(), %err, "boost soft-fail"),
+            }
+        }
     }
 
     Ok(snap)
@@ -260,7 +270,7 @@ mod tests {
         fn id(&self) -> &'static str {
             "power_plan"
         }
-        fn apply(&self) -> Result<BoostHandle> {
+        fn apply(&self, _ctx: &BoostContext<'_>) -> Result<BoostHandle> {
             *self.hits.lock().expect("hits") += 1;
             Ok(BoostHandle {
                 provider_id: "power_plan".into(),
@@ -288,6 +298,68 @@ mod tests {
                 providers,
             },
         }
+    }
+
+    #[test]
+    fn focus_runs_before_boost() {
+        let order = Mutex::new(Vec::new());
+        let profile = Profile {
+            name: "order".into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: vec![crate::profile::Matcher::ProcessName("chrome".into())],
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy::default(),
+            boost: crate::profile::BoostPolicy {
+                enabled: true,
+                providers: vec!["power_plan".into()],
+            },
+        };
+        struct OrderController<'a> {
+            order: &'a Mutex<Vec<&'static str>>,
+        }
+        impl ProcessController for OrderController<'_> {
+            fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
+                Ok(vec![ProcessInfo {
+                    pid: 42,
+                    name: "chrome".into(),
+                    exe_path: None,
+                    cmdline: None,
+                }])
+            }
+            fn suspend(&self, _pid: u32) -> Result<()> {
+                self.order.lock().expect("order").push("focus");
+                Ok(())
+            }
+            fn resume(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+            fn soft_stop(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+        }
+        struct OrderBoost<'a> {
+            order: &'a Mutex<Vec<&'static str>>,
+        }
+        impl BoostProvider for OrderBoost<'_> {
+            fn id(&self) -> &'static str {
+                "power_plan"
+            }
+            fn apply(&self, _ctx: &BoostContext<'_>) -> Result<BoostHandle> {
+                self.order.lock().expect("order").push("boost");
+                Ok(BoostHandle {
+                    provider_id: "power_plan".into(),
+                    payload: String::new(),
+                })
+            }
+            fn rollback(&self, _handle: BoostHandle) -> Result<()> {
+                Ok(())
+            }
+        }
+        let controller = OrderController { order: &order };
+        let boost = OrderBoost { order: &order };
+        start_session(&profile, SessionMode::default(), &controller, &[&boost]).expect("start");
+        assert_eq!(*order.lock().expect("order"), vec!["focus", "boost"]);
     }
 
     #[test]

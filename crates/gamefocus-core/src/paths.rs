@@ -86,7 +86,10 @@ mod tests {
         assert_eq!(profile.name, "windows-gaming");
         assert!(!profile.park.is_empty());
         assert!(profile.focus.protect_shell);
-        assert_eq!(profile.boost.providers, vec!["power_plan".to_string()]);
+        assert_eq!(
+            profile.boost.providers,
+            vec!["power_plan".to_string(), "working_set".to_string()]
+        );
     }
 
     #[test]

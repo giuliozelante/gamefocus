@@ -3,7 +3,8 @@ name = "gamefocus-windows"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-description = "Windows Focus suspend/resume and power-plan Boost"
+description = "Windows Focus, power-plan Boost, and working-set Boost"
 
 [dependencies]
 gamefocus-core = { workspace = true }
+tracing = { workspace = true }
