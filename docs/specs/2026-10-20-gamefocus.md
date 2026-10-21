@@ -38,8 +38,8 @@ Done when:
 |------|------|
 | `crates/gamefocus-core` | Profiles, session, Focus/Boost traits |
 | `crates/gamefocus-linux` | SIGSTOP/SIGCONT + GameMode |
-| `crates/gamefocus-windows` | Windows backend (stub until its issue) |
-| `crates/gamefocus-macos` | macOS backend (stub until its issue) |
+| `crates/gamefocus-windows` | Windows Focus and power-plan Boost |
+| `crates/gamefocus-macos` | macOS Focus (`SIGSTOP` / `SIGCONT`). No Boost provider yet |
 | `crates/gamefocus-cli` | `gamefocus` CLI |
 | `crates/gamefocus-ui` | Tauri tray (its own issue) |
 | `profiles/bundled/` | Shipped TOML profiles |
@@ -55,7 +55,7 @@ cargo clippy --workspace --exclude gamefocus-ui --all-targets -- -D warnings
 cargo build --workspace --exclude gamefocus-ui
 ```
 
-The tray crate is not on `develop` yet. When it lands, Linux CI needs `webkit2gtk-4.1`.
+Linux UI CI needs `webkit2gtk-4.1` (`.github/workflows/ui.yml`).
 
 ## Quality and release
 
