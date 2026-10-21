@@ -112,7 +112,11 @@ mod tests {
         assert!(profile.focus.protect_shell);
         assert_eq!(
             profile.boost.providers,
-            vec!["power_plan".to_string(), "working_set".to_string()]
+            vec![
+                "power_plan".to_string(),
+                "working_set".to_string(),
+                "cpu_affinity".to_string(),
+            ]
         );
     }
 

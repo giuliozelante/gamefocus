@@ -9,7 +9,7 @@ Inspired by the *useful* part of Razer Cortex — not a clone.
 | Switch | What it does |
 |--------|----------------|
 | **Focus** | Suspend (preferred) or soft-stop processes listed in the profile `park` list; restore on session end |
-| **Boost** | Reversible OS tweaks (Linux: GameMode; Windows: High Performance power plan + working-set trim on parked pids). macOS has no Boost provider yet. An empty provider list applies none |
+| **Boost** | Reversible OS tweaks (Linux: GameMode; Windows: High Performance power plan, working-set trim, and CPU affinity on parked pids). macOS has no Boost provider yet. An empty provider list applies none |
 
 Use Focus only, Boost only, or both. Gaming preset defaults: both on.
 

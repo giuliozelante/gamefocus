@@ -211,6 +211,167 @@ fn empty_working_set_win32(pid: u32) -> Result<()> {
     }
 }
 
+/// Pin parked processes to CPU 0. Rollback restores each previous mask.
+pub const PARKED_AFFINITY_MASK: usize = 0x1;
+
+pub trait AffinityOps: Send + Sync {
+    fn get_affinity(&self, pid: u32) -> Result<usize>;
+    fn set_affinity(&self, pid: u32, mask: usize) -> Result<()>;
+}
+
+pub struct CpuAffinityBoost<O> {
+    ops: O,
+}
+
+impl<O> CpuAffinityBoost<O> {
+    pub fn new(ops: O) -> Self {
+        Self { ops }
+    }
+}
+
+impl CpuAffinityBoost<SystemAffinityOps> {
+    pub fn system() -> Self {
+        Self::new(SystemAffinityOps)
+    }
+}
+
+impl<O: AffinityOps> BoostProvider for CpuAffinityBoost<O> {
+    fn id(&self) -> &'static str {
+        "cpu_affinity"
+    }
+
+    fn apply(&self, ctx: &gamefocus_core::BoostContext<'_>) -> Result<BoostHandle> {
+        let mut saved = Vec::new();
+        for proc in ctx.suspended {
+            if proc.action != "suspend" {
+                continue;
+            }
+            match self.ops.get_affinity(proc.pid) {
+                Ok(previous) => {
+                    if let Err(err) = self.ops.set_affinity(proc.pid, PARKED_AFFINITY_MASK) {
+                        tracing::warn!(pid = proc.pid, %err, "cpu_affinity soft-fail");
+                        continue;
+                    }
+                    saved.push(format!("{}:{previous:x}", proc.pid));
+                }
+                Err(err) => tracing::warn!(pid = proc.pid, %err, "cpu_affinity soft-fail"),
+            }
+        }
+        Ok(BoostHandle {
+            provider_id: self.id().into(),
+            payload: saved.join(","),
+        })
+    }
+
+    fn rollback(&self, handle: BoostHandle) -> Result<()> {
+        for entry in handle.payload.split(',').filter(|s| !s.is_empty()) {
+            let Some((pid_str, mask_str)) = entry.split_once(':') else {
+                continue;
+            };
+            let Ok(pid) = pid_str.parse::<u32>() else {
+                continue;
+            };
+            let Ok(mask) = usize::from_str_radix(mask_str, 16) else {
+                continue;
+            };
+            if let Err(err) = self.ops.set_affinity(pid, mask) {
+                tracing::warn!(pid, %err, "cpu_affinity rollback soft-fail");
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct SystemAffinityOps;
+
+impl AffinityOps for SystemAffinityOps {
+    fn get_affinity(&self, pid: u32) -> Result<usize> {
+        #[cfg(windows)]
+        {
+            process_affinity_win32(pid, None)
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = pid;
+            Err(Error::Boost {
+                provider: "cpu_affinity".into(),
+                message: "affinity APIs are only available on Windows".into(),
+            })
+        }
+    }
+
+    fn set_affinity(&self, pid: u32, mask: usize) -> Result<()> {
+        #[cfg(windows)]
+        {
+            process_affinity_win32(pid, Some(mask)).map(|_| ())
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = (pid, mask);
+            Err(Error::Boost {
+                provider: "cpu_affinity".into(),
+                message: "affinity APIs are only available on Windows".into(),
+            })
+        }
+    }
+}
+
+#[cfg(windows)]
+fn process_affinity_win32(pid: u32, set_mask: Option<usize>) -> Result<usize> {
+    use std::os::raw::c_void;
+    const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+    const PROCESS_SET_INFORMATION: u32 = 0x0200;
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(access: u32, inherit: i32, pid: u32) -> *mut c_void;
+        fn CloseHandle(handle: *mut c_void) -> i32;
+        fn GetLastError() -> u32;
+        fn GetProcessAffinityMask(
+            handle: *mut c_void,
+            process: *mut usize,
+            system: *mut usize,
+        ) -> i32;
+        fn SetProcessAffinityMask(handle: *mut c_void, mask: usize) -> i32;
+    }
+    unsafe {
+        let access = if set_mask.is_some() {
+            PROCESS_QUERY_INFORMATION | PROCESS_SET_INFORMATION
+        } else {
+            PROCESS_QUERY_INFORMATION
+        };
+        let handle = OpenProcess(access, 0, pid);
+        if handle.is_null() {
+            return Err(Error::Boost {
+                provider: "cpu_affinity".into(),
+                message: format!("OpenProcess {}", GetLastError()),
+            });
+        }
+        let mut process_mask = 0usize;
+        let mut system_mask = 0usize;
+        let got = GetProcessAffinityMask(handle, &mut process_mask, &mut system_mask);
+        if got == 0 {
+            CloseHandle(handle);
+            return Err(Error::Boost {
+                provider: "cpu_affinity".into(),
+                message: format!("GetProcessAffinityMask {}", GetLastError()),
+            });
+        }
+        if let Some(mask) = set_mask {
+            let ok = SetProcessAffinityMask(handle, mask);
+            CloseHandle(handle);
+            if ok == 0 {
+                return Err(Error::Boost {
+                    provider: "cpu_affinity".into(),
+                    message: format!("SetProcessAffinityMask {}", GetLastError()),
+                });
+            }
+            return Ok(mask);
+        }
+        CloseHandle(handle);
+        Ok(process_mask)
+    }
+}
+
 pub trait ProcessOps: Send + Sync {
     fn list(&self) -> Result<Vec<ProcessInfo>>;
     fn suspend(&self, pid: u32) -> Result<()>;
@@ -528,6 +689,64 @@ mod tests {
         assert_eq!(handle.payload, "42");
         assert_eq!(*boost.ops.pids.lock().expect("pids"), vec![42]);
         boost.rollback(handle).expect("rollback");
+    }
+
+    struct MemAffinity {
+        masks: Mutex<std::collections::HashMap<u32, usize>>,
+    }
+
+    impl MemAffinity {
+        fn new(pid: u32, mask: usize) -> Self {
+            let mut map = std::collections::HashMap::new();
+            map.insert(pid, mask);
+            Self {
+                masks: Mutex::new(map),
+            }
+        }
+    }
+
+    impl AffinityOps for MemAffinity {
+        fn get_affinity(&self, pid: u32) -> Result<usize> {
+            self.masks
+                .lock()
+                .expect("masks")
+                .get(&pid)
+                .copied()
+                .ok_or_else(|| Error::Boost {
+                    provider: "cpu_affinity".into(),
+                    message: "missing".into(),
+                })
+        }
+
+        fn set_affinity(&self, pid: u32, mask: usize) -> Result<()> {
+            self.masks.lock().expect("masks").insert(pid, mask);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn cpu_affinity_pins_and_restores_mask() {
+        let ops = MemAffinity::new(42, 0xff);
+        let boost = CpuAffinityBoost::new(ops);
+        let suspended = [gamefocus_core::SuspendedProcess {
+            pid: 42,
+            name: "chrome.exe".into(),
+            action: "suspend".into(),
+        }];
+        let ctx = gamefocus_core::BoostContext {
+            suspended: &suspended,
+        };
+        let handle = boost.apply(&ctx).expect("apply");
+        assert_eq!(handle.payload, "42:ff");
+        assert_eq!(
+            *boost.ops.masks.lock().expect("masks").get(&42).expect("pid"),
+            PARKED_AFFINITY_MASK
+        );
+        boost.rollback(handle).expect("rollback");
+        assert_eq!(
+            *boost.ops.masks.lock().expect("masks").get(&42).expect("pid"),
+            0xff
+        );
     }
 
     #[test]
