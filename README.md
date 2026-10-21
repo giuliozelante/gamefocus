@@ -55,25 +55,24 @@ cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-ru
 ## CLI
 
 ```bash
-# Preview (no suspend)
-cargo run -p gamefocus-cli -- start \
-  --profile profiles/bundled/linux-gaming.toml \
-  --dry-run
+cargo run -p gamefocus-cli -- profiles
 
-# Start Focus+Boost (writes gamefocus-session.json)
-cargo run -p gamefocus-cli -- start \
-  --profile profiles/bundled/linux-gaming.toml \
-  --focus on --boost on
+# Preview park matches (no suspend). Relative names resolve under profiles/.
+cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run
+
+# Start Focus+Boost (default snapshot: XDG_RUNTIME_DIR, else LOCALAPPDATA/gamefocus,
+# else ~/.local/state/gamefocus/session.json)
+cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --focus on --boost on
 
 # Focus only / Boost only
-cargo run -p gamefocus-cli -- start --profile profiles/bundled/linux-gaming.toml --focus on --boost off
-cargo run -p gamefocus-cli -- start --profile profiles/bundled/linux-gaming.toml --focus off --boost on
+cargo run -p gamefocus-cli -- start --profile bundled/windows-gaming.toml --focus on --boost off
+cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --focus off --boost on
 
 cargo run -p gamefocus-cli -- status
 cargo run -p gamefocus-cli -- end
 ```
 
-**Safety:** Focus only acts on the explicit `[[park]]` list. Empty `park` = no suspensions. Shell/compositor names are protected when `protect_shell = true`.
+**Safety:** Focus only acts on the explicit `[[park]]` list. Empty `park` = no suspensions. Shell/compositor names are protected when `protect_shell = true`. Empty Boost `providers` applies none.
 
 ## Tray UI (Tauri)
 
