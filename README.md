@@ -47,7 +47,10 @@ export PATH="$HOME/.rustup/toolchains/1.83.0-x86_64-unknown-linux-gnu/bin:$PATH"
 
 cargo build -p gamefocus-cli
 cargo test
+cargo run -p gamefocus-cli -- profiles
+cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run
 ```
+
 
 ## CLI
 
