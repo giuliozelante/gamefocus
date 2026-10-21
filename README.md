@@ -34,7 +34,8 @@ Phase 0–2 + tray scaffold:
 - Bundled profile `profiles/bundled/linux-gaming.toml`
 - Competitive notes: [`docs/competitive/cortex-inventory.md`](docs/competitive/cortex-inventory.md) (VM inventory done)
 - Tauri tray UI: [`crates/gamefocus-ui`](crates/gamefocus-ui) (needs `webkit2gtk-4.1` on Linux)
-- Windows / macOS Focus: planned
+- Windows Focus suspend/resume and power-plan Boost (`power_plan`)
+- macOS Focus: planned
 
 ## Build
 
