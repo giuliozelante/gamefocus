@@ -6,7 +6,7 @@ Goal:
   as independent toggles. Clean-room Rust. Cortex is a checklist, not a source tree.
 
 In:
-  Rust workspace, Linux Focus + GameMode soft-fail, bundled profile,
+  Rust workspace, Linux Focus + GameMode soft-fail, bundled profiles,
   CLI, Git Flow (main stable, develop integration),
   GitHub Actions on Linux, Windows, and macOS.
   The Tauri tray is a separate issue; its CI job is added with that crate.

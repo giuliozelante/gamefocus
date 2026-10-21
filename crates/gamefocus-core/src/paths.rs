@@ -80,13 +80,45 @@ mod tests {
     use super::*;
 
     #[test]
+    fn bundled_windows_profile_uses_power_plan() {
+        let path = repo_root_guess().join("profiles/bundled/windows-gaming.toml");
+        let profile = crate::Profile::load_file(&path).expect("windows profile");
+        assert_eq!(profile.name, "windows-gaming");
+        assert!(!profile.park.is_empty());
+        assert!(profile.focus.protect_shell);
+        assert_eq!(profile.boost.providers, vec!["power_plan".to_string()]);
+    }
+
+    #[test]
+    fn bundled_macos_profile_has_no_boost_provider() {
+        let path = repo_root_guess().join("profiles/bundled/macos-gaming.toml");
+        let profile = crate::Profile::load_file(&path).expect("macos profile");
+        assert_eq!(profile.name, "macos-gaming");
+        assert!(!profile.park.is_empty());
+        assert!(profile.focus.protect_shell);
+        assert!(profile.boost.providers.is_empty());
+    }
+
+    #[test]
     fn discover_profiles_finds_bundled() {
         let found = discover_profiles();
         assert!(
-            found.iter().any(|p| {
-                p.file_name().and_then(|n| n.to_str()) == Some("linux-gaming.toml")
-            }),
+            found
+                .iter()
+                .any(|p| { p.file_name().and_then(|n| n.to_str()) == Some("linux-gaming.toml") }),
             "expected bundled linux-gaming.toml, got {found:?}"
+        );
+        assert!(
+            found
+                .iter()
+                .any(|p| { p.file_name().and_then(|n| n.to_str()) == Some("windows-gaming.toml") }),
+            "expected bundled windows-gaming.toml, got {found:?}"
+        );
+        assert!(
+            found
+                .iter()
+                .any(|p| { p.file_name().and_then(|n| n.to_str()) == Some("macos-gaming.toml") }),
+            "expected bundled macos-gaming.toml, got {found:?}"
         );
     }
 

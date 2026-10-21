@@ -143,13 +143,7 @@ pub fn start_session(
 
     if mode.boost_enabled(profile) {
         for provider in boosters {
-            if !profile.boost.providers.is_empty()
-                && !profile
-                    .boost
-                    .providers
-                    .iter()
-                    .any(|p| p == provider.id())
-            {
+            if !profile.boost.providers.iter().any(|p| p == provider.id()) {
                 continue;
             }
             match provider.apply() {
@@ -176,8 +170,7 @@ pub fn start_session(
             if profile.focus.protect_shell && is_protected_shell(&info) {
                 continue;
             }
-            if matches_whitelist(&info, profile) || matches_any_matcher(&info, &profile.matchers)
-            {
+            if matches_whitelist(&info, profile) || matches_any_matcher(&info, &profile.matchers) {
                 continue;
             }
             if !matches_any_matcher(&info, &profile.park) {
@@ -235,4 +228,85 @@ pub fn end_session(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    struct Noop;
+
+    impl ProcessController for Noop {
+        fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
+            Ok(Vec::new())
+        }
+        fn suspend(&self, _pid: u32) -> Result<()> {
+            Ok(())
+        }
+        fn resume(&self, _pid: u32) -> Result<()> {
+            Ok(())
+        }
+        fn soft_stop(&self, _pid: u32) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    struct CountingBoost {
+        hits: Mutex<u32>,
+    }
+
+    impl BoostProvider for CountingBoost {
+        fn id(&self) -> &'static str {
+            "power_plan"
+        }
+        fn apply(&self) -> Result<BoostHandle> {
+            *self.hits.lock().expect("hits") += 1;
+            Ok(BoostHandle {
+                provider_id: "power_plan".into(),
+                payload: String::new(),
+            })
+        }
+        fn rollback(&self, _handle: BoostHandle) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    fn profile_with_providers(name: &str, providers: Vec<String>) -> Profile {
+        Profile {
+            name: name.into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: Vec::new(),
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy {
+                enabled: false,
+                ..crate::profile::FocusPolicy::default()
+            },
+            boost: crate::profile::BoostPolicy {
+                enabled: true,
+                providers,
+            },
+        }
+    }
+
+    #[test]
+    fn empty_provider_list_applies_no_booster() {
+        let profile = profile_with_providers("empty-boost", Vec::new());
+        let boost = CountingBoost {
+            hits: Mutex::new(0),
+        };
+        start_session(&profile, SessionMode::default(), &Noop, &[&boost]).expect("start");
+        assert_eq!(*boost.hits.lock().expect("hits"), 0);
+    }
+
+    #[test]
+    fn listed_provider_is_applied() {
+        let profile = profile_with_providers("listed-boost", vec!["power_plan".into()]);
+        let boost = CountingBoost {
+            hits: Mutex::new(0),
+        };
+        start_session(&profile, SessionMode::default(), &Noop, &[&boost]).expect("start");
+        assert_eq!(*boost.hits.lock().expect("hits"), 1);
+    }
 }
