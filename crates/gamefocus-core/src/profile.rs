@@ -98,7 +98,11 @@ fn default_true() -> bool {
 impl Profile {
     pub fn load_file(path: impl AsRef<Path>) -> Result<Self> {
         let text = fs::read_to_string(path)?;
-        let profile: Profile = toml::from_str(&text)?;
+        Self::parse_toml(&text)
+    }
+
+    pub fn parse_toml(text: &str) -> Result<Self> {
+        let profile: Profile = toml::from_str(text)?;
         if profile.name.trim().is_empty() {
             return Err(Error::Profile("profile.name must not be empty".into()));
         }

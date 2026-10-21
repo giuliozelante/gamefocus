@@ -38,6 +38,19 @@ Phase 0–2 + tray scaffold:
 - Windows Focus suspend/resume, power-plan Boost (`power_plan`), and working-set Boost (`working_set`)
 - macOS Focus suspend/resume (`SIGSTOP` / `SIGCONT`). No Boost provider yet
 
+## Quickstart (casual)
+
+1. Download a [release](https://github.com/giuliozelante/gamefocus/releases) archive and extract it.
+2. Run:
+
+```bash
+./gamefocus start          # uses embedded OS default; no profile path needed
+./gamefocus status
+./gamefocus end
+```
+
+Or open the tray and click **Start gaming**. Customize later: see [`docs/PROFILES.md`](docs/PROFILES.md).
+
 ## Build
 
 ```bash
@@ -48,27 +61,20 @@ export PATH="$HOME/.rustup/toolchains/1.83.0-x86_64-unknown-linux-gnu/bin:$PATH"
 
 cargo build -p gamefocus-cli
 cargo test
-cargo run -p gamefocus-cli -- profiles
-cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run
+cargo run -p gamefocus-cli -- start --dry-run
 ```
-
 
 ## CLI
 
 ```bash
-cargo run -p gamefocus-cli -- profiles
+# Zero-config (embedded default, or ~/.config/gamefocus/default.toml if present)
+cargo run -p gamefocus-cli -- start --dry-run
+cargo run -p gamefocus-cli -- start
 
-# Preview park matches (no suspend). Relative names resolve under profiles/.
+# Optional explicit profile
 cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run
 
-# Start Focus+Boost (default snapshot: XDG_RUNTIME_DIR, else LOCALAPPDATA/gamefocus,
-# else ~/.local/state/gamefocus/session.json)
-cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --focus on --boost on
-
-# Focus only / Boost only
-cargo run -p gamefocus-cli -- start --profile bundled/windows-gaming.toml --focus on --boost off
-cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --focus off --boost on
-
+cargo run -p gamefocus-cli -- profiles
 cargo run -p gamefocus-cli -- status
 cargo run -p gamefocus-cli -- end
 ```

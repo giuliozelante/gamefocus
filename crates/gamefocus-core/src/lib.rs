@@ -7,7 +7,8 @@ mod session;
 
 pub use error::{Error, Result};
 pub use paths::{
-    default_snapshot_path, discover_profiles, repo_root_guess, resolve_profile_path,
+    default_snapshot_path, discover_profiles, embedded_default_toml, load_session_profile,
+    repo_root_guess, resolve_profile_path, user_default_profile_path, ProfileSource,
 };
 pub use profile::{
     BoostPolicy, FocusAction, FocusPolicy, Matcher, Profile, WhitelistEntry,

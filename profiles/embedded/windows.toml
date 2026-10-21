@@ -1,0 +1,35 @@
+name = "default-windows"
+description = "Safe embedded default: park common browsers and chat apps. Power plan, working set, and CPU affinity boosts."
+
+[[park]]
+process_name = "chrome.exe"
+
+[[park]]
+process_name = "msedge.exe"
+
+[[park]]
+process_name = "firefox.exe"
+
+[[park]]
+process_name = "Discord.exe"
+
+[[park]]
+process_name = "Spotify.exe"
+
+[[park]]
+process_name = "Slack.exe"
+
+[[whitelist]]
+process_name = "steam.exe"
+
+[[whitelist]]
+process_name = "gamefocus"
+
+[focus]
+enabled = true
+action = "suspend"
+protect_shell = true
+
+[boost]
+enabled = true
+providers = ["power_plan", "working_set", "cpu_affinity"]
