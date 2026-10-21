@@ -61,9 +61,81 @@ jobs:
           name: ${{ matrix.archive }}
           path: dist/${{ matrix.archive }}
 
+  bundle-ui:
+    name: bundle-ui (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            bundles: deb
+            out_name: gamefocus-linux-x86_64.deb
+            glob: "target/release/bundle/deb/*.deb"
+          - os: windows-latest
+            bundles: nsis
+            out_name: gamefocus-windows-x86_64-setup.exe
+            glob: "target/release/bundle/nsis/*-setup.exe"
+          - os: macos-latest
+            bundles: dmg
+            out_name: gamefocus-macos-aarch64.dmg
+            glob: "target/release/bundle/dmg/*.dmg"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Linux WebKit / bundling deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            fakeroot
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          key: ui-bundle-${{ matrix.os }}
+      - uses: baptiste0928/cargo-install@8195d4f734a149db85385bb4102b42efcd373759 # v3.5.0
+        with:
+          crate: tauri-cli
+          version: "2.12.3"
+      - name: Bundle tray UI
+        run: >
+          cargo tauri build
+          --ci
+          --bundles ${{ matrix.bundles }}
+          --manifest-path crates/gamefocus-ui/src-tauri/Cargo.toml
+      - name: Stage installer
+        shell: bash
+        env:
+          GLOB: ${{ matrix.glob }}
+          OUT_NAME: ${{ matrix.out_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # Bash 3.2 on macOS runners: no mapfile; nullglob + array expand.
+          shopt -s nullglob
+          # shellcheck disable=SC2206
+          files=($GLOB)
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "No bundle matched: $GLOB" >&2
+            find target/release/bundle -type f 2>/dev/null | head -100 >&2 || true
+            exit 1
+          fi
+          cp "${files[0]}" "dist/${OUT_NAME}"
+          ls -la "dist/${OUT_NAME}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.out_name }}
+          path: dist/${{ matrix.out_name }}
+
   publish:
     name: publish
-    needs: build
+    needs: [build, bundle-ui]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -80,13 +152,24 @@ jobs:
           body: |
             ## Platforms
 
+            ### CLI (Focus/Boost from a terminal)
+
             | OS | Artifact |
             |----|----------|
-            | Linux x64 | `gamefocus-linux-x86_64.tar.gz` (CLI `gamefocus`) |
-            | Windows x64 | `gamefocus-windows-x86_64.zip` (CLI `gamefocus.exe`) |
-            | macOS arm64 | `gamefocus-macos-aarch64.tar.gz` (CLI `gamefocus`) |
+            | Linux x64 | `gamefocus-linux-x86_64.tar.gz` |
+            | Windows x64 | `gamefocus-windows-x86_64.zip` |
+            | macOS arm64 | `gamefocus-macos-aarch64.tar.gz` |
 
-            Each archive includes the CLI binary plus an `examples/` folder of TOML profiles
-            for customization. With no `--profile`, the binary uses an embedded OS default.
+            Each CLI archive includes the binary plus an `examples/` folder of TOML profiles.
+            With no `--profile`, the binary uses an embedded OS default.
 
-            Tray/UI installers (`.deb` / `.msi` / `.dmg`) are not in this release yet.
+            ### Tray UI installers (unsigned)
+
+            | OS | Artifact |
+            |----|----------|
+            | Linux x64 | `gamefocus-linux-x86_64.deb` |
+            | Windows x64 | `gamefocus-windows-x86_64-setup.exe` (NSIS) |
+            | macOS arm64 | `gamefocus-macos-aarch64.dmg` |
+
+            Installers are **not code-signed**. On macOS you may need System Settings → Privacy & Security
+            to allow the app; on Windows SmartScreen may warn on first run.

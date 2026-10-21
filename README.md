@@ -24,7 +24,7 @@ FPS overlay, rewards, dehumidifier, driver “optimizer” packs, telemetry, Cor
 Spec: [`docs/specs/2026-10-20-gamefocus.md`](docs/specs/2026-10-20-gamefocus.md).
 Changelog: [`CHANGELOG.md`](CHANGELOG.md). Releases: [v0.2.0](https://github.com/giuliozelante/gamefocus/releases/tag/v0.2.0).
 
-Story and failing test first for Rust changes (`.cursor/rules/agile-tdd.mdc`). SonarQube Cloud scans on `develop` and `main` after the `SONAR_TOKEN` secret exists. Tag `v*` builds the CLI for Linux x64, Windows x64, and macOS arm64.
+Story and failing test first for Rust changes (`.cursor/rules/agile-tdd.mdc`). SonarQube Cloud scans on `develop` and `main` after the `SONAR_TOKEN` secret exists. Tag `v*` builds the CLI archives plus unsigned tray installers (`.deb` / NSIS `.exe` / `.dmg`).
 
 ## Status
 
@@ -40,8 +40,9 @@ Phase 0–2 + tray scaffold:
 
 ## Quickstart (casual)
 
-1. Download a [release](https://github.com/giuliozelante/gamefocus/releases) archive and extract it.
-2. Run:
+**Tray (easiest):** download the installer for your OS from [Releases](https://github.com/giuliozelante/gamefocus/releases) (`.deb` / Windows setup `.exe` / `.dmg`), install, then click **Start gaming**. Installers are unsigned — macOS/Windows may ask you to allow the app once.
+
+**CLI:** download a release archive, extract, then:
 
 ```bash
 ./gamefocus start          # uses embedded OS default; no profile path needed
@@ -49,7 +50,7 @@ Phase 0–2 + tray scaffold:
 ./gamefocus end
 ```
 
-Or open the tray and click **Start gaming**. Customize later: see [`docs/PROFILES.md`](docs/PROFILES.md).
+Customize later: see [`docs/PROFILES.md`](docs/PROFILES.md).
 
 ## Build
 
