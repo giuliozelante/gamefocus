@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-21
+
 ### Added
 
 - Embedded OS default profiles so `gamefocus start` works with no `--profile`
@@ -17,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - README quickstart for casual users; profile docs moved to `docs/PROFILES.md`
+- Windows release packing uses a relative `dist/` path so zip creation works on GitHub Actions
+
+### Fixed
+
+- Windows release zip failed with `Cannot connect to D:` when tar saw absolute drive paths
 
 ## [0.1.0] - 2026-10-21
 
@@ -44,5 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Focus only acts on the explicit park deny-list; shell protect stays on by default
 - Working-set and CPU affinity touch only Focus-suspended background pids
 
-[Unreleased]: https://github.com/giuliozelante/gamefocus/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/giuliozelante/gamefocus/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/giuliozelante/gamefocus/releases/tag/v0.2.0
 [0.1.0]: https://github.com/giuliozelante/gamefocus/releases/tag/v0.1.0
