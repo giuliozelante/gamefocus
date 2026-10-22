@@ -21,6 +21,53 @@ pub struct Profile {
     pub focus: FocusPolicy,
     #[serde(default)]
     pub boost: BoostPolicy,
+    #[serde(default)]
+    pub gpu: GpuSection,
+}
+
+/// Nested `[gpu]` profile section.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GpuSection {
+    #[serde(default)]
+    pub vram_reclaim: VramReclaimConfig,
+}
+
+/// `[gpu.vram_reclaim]` — reactive soft-stop of GPU hogs (not Focus SIGSTOP).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VramReclaimConfig {
+    #[serde(default)]
+    pub policy: VramReclaimPolicy,
+    #[serde(default = "default_vram_threshold_mib")]
+    pub threshold_mib: u64,
+    /// Case-insensitive globs matched against resolved target names.
+    #[serde(default)]
+    pub reclaimable_patterns: Vec<String>,
+}
+
+impl Default for VramReclaimConfig {
+    fn default() -> Self {
+        Self {
+            policy: VramReclaimPolicy::default(),
+            threshold_mib: default_vram_threshold_mib(),
+            reclaimable_patterns: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum VramReclaimPolicy {
+    /// Log only; never stop (CLI non-TTY default).
+    #[default]
+    Warn,
+    /// Ask on a TTY; otherwise behave like warn.
+    Prompt,
+    /// Soft-stop matching targets without asking.
+    Auto,
+}
+
+fn default_vram_threshold_mib() -> u64 {
+    500
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -129,5 +176,20 @@ description = "unit"
     #[test]
     fn boost_default_providers_are_empty() {
         assert!(BoostPolicy::default().providers.is_empty());
+    }
+
+    #[test]
+    fn parses_gpu_vram_reclaim_section() {
+        let toml = r#"
+name = "gpu"
+[gpu.vram_reclaim]
+policy = "prompt"
+threshold_mib = 400
+reclaimable_patterns = ["*llama*", "*ollama*"]
+"#;
+        let p = Profile::parse_toml(toml).expect("parse");
+        assert_eq!(p.gpu.vram_reclaim.policy, VramReclaimPolicy::Prompt);
+        assert_eq!(p.gpu.vram_reclaim.threshold_mib, 400);
+        assert_eq!(p.gpu.vram_reclaim.reclaimable_patterns.len(), 2);
     }
 }

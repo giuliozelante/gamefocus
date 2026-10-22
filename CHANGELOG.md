@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Optional `*` globs on `process_name` (e.g. `code-*`)
 - VRAM preflight: WARN when a non-whitelisted process holds ≥500 MiB GPU memory (`nvidia-smi`)
 - VRAM preflight resolves Docker/Podman/systemd-user names from cgroup when possible
+- VRAM reclaim lifecycle: `[gpu.vram_reclaim]` policy (`warn`/`prompt`/`auto`), soft-stop matching Docker/Podman/systemd-user targets, restore on `end`; CLI `--reclaim-vram`
 - Linux Focus: after SIGSTOP, soft-fail `process_madvise(MADV_PAGEOUT)` on anonymous RSS
 - Session impact summary after `start` (park count + MemAvailable delta when available)
 

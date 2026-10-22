@@ -71,6 +71,8 @@ cargo run -p gamefocus-cli -- start --dry-run
 # Zero-config (embedded default, or ~/.config/gamefocus/default.toml if present)
 cargo run -p gamefocus-cli -- start --dry-run
 cargo run -p gamefocus-cli -- start
+# Soft-stop reclaimable GPU hogs (Docker/Podman/systemd-user) without prompting:
+cargo run -p gamefocus-cli -- start --reclaim-vram
 
 # Optional explicit profile
 cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run

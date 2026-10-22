@@ -54,3 +54,16 @@ protect_shell = true
 [boost]
 enabled = true
 providers = ["gamemode"]
+
+[gpu.vram_reclaim]
+policy = "prompt"
+threshold_mib = 500
+reclaimable_patterns = [
+  "*llama*",
+  "*ollama*",
+  "*vllm*",
+  "*localai*",
+  "*text-generation*",
+  "*comfyui*",
+  "*stable-diffusion*",
+]

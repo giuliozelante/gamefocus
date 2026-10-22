@@ -4,6 +4,7 @@ mod cgroup;
 mod error;
 mod paths;
 mod profile;
+mod reclaim;
 mod resources;
 mod session;
 mod vram;
@@ -14,14 +15,21 @@ pub use paths::{
     repo_root_guess, resolve_profile_path, user_default_profile_path, ProfileSource,
 };
 pub use profile::{
-    BoostPolicy, FocusAction, FocusPolicy, Matcher, Profile, WhitelistEntry,
+    BoostPolicy, FocusAction, FocusPolicy, GpuSection, Matcher, Profile, VramReclaimConfig,
+    VramReclaimPolicy, WhitelistEntry,
 };
 pub use session::{
     end_session, park_targets, start_session, BoostContext, SessionMode, SessionSnapshot,
     SuspendedProcess,
 };
 pub use cgroup::{
-    format_cgroup_label, parse_cgroup_target, resolve_pid_supervisor_label, CgroupTarget,
+    container_display_name, format_cgroup_label, parse_cgroup_target,
+    resolve_pid_supervisor_label, CgroupTarget,
+};
+pub use reclaim::{
+    collect_reclaim_candidates, effective_reclaim_mode, name_matches_reclaimable,
+    reclaim_candidate, restore_reclaimed, soft_stop_targets, ReclaimMode, ReclaimTarget,
+    ReclaimedEntry, SupervisorOps, SystemSupervisor,
 };
 pub use resources::{format_session_impact, mem_available_bytes};
 pub use vram::{

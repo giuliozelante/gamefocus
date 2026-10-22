@@ -78,12 +78,10 @@ fn last_service_unit(path: &str) -> Option<String> {
 pub fn format_cgroup_label(target: &CgroupTarget) -> String {
     match target {
         CgroupTarget::Docker { id } => {
-            let name = inspect_container_name("docker", id).unwrap_or_else(|| short_id(id));
-            format!("Docker: {name}")
+            format!("Docker: {}", container_display_name("docker", id))
         }
         CgroupTarget::Podman { id } => {
-            let name = inspect_container_name("podman", id).unwrap_or_else(|| short_id(id));
-            format!("Podman: {name}")
+            format!("Podman: {}", container_display_name("podman", id))
         }
         CgroupTarget::SystemdUser { unit } => format!("systemd-user: {unit}"),
     }
@@ -107,6 +105,11 @@ fn inspect_container_name(engine: &str, id: &str) -> Option<String> {
     } else {
         Some(name)
     }
+}
+
+/// Human container name, or a short id fallback when inspect is unavailable.
+pub fn container_display_name(engine: &str, id: &str) -> String {
+    inspect_container_name(engine, id).unwrap_or_else(|| short_id(id))
 }
 
 /// Read `/proc/<pid>/cgroup` and format a label when possible (Linux only).
