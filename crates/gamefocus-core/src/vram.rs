@@ -87,12 +87,11 @@ pub fn vram_warn_targets<'a>(
         .collect()
 }
 
-pub fn format_vram_warning(c: &VramConsumer) -> String {
+pub fn format_vram_warning(c: &VramConsumer, resolved: Option<&str>) -> String {
+    let who = resolved.unwrap_or_else(|| basename_of(&c.process_name));
     format!(
         "PID {} ({}) is holding {} MiB VRAM. Suspending will NOT free GPU memory.",
-        c.pid,
-        basename_of(&c.process_name),
-        c.used_mib
+        c.pid, who, c.used_mib
     )
 }
 
@@ -116,7 +115,8 @@ pub fn probe_nvidia_compute_apps() -> Vec<VramConsumer> {
 pub fn warn_heavy_vram_users(profile: &Profile) {
     let consumers = probe_nvidia_compute_apps();
     for c in vram_warn_targets(&consumers, profile, VRAM_WARN_MIB) {
-        warn!("{}", format_vram_warning(c));
+        let resolved = crate::cgroup::resolve_pid_supervisor_label(c.pid);
+        warn!("{}", format_vram_warning(c, resolved.as_deref()));
     }
 }
 
@@ -182,9 +182,11 @@ mod tests {
         let hits = vram_warn_targets(&consumers, &profile, 500);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].pid, 1);
-        let msg = format_vram_warning(hits[0]);
+        let msg = format_vram_warning(hits[0], None);
         assert!(msg.contains("6526"));
         assert!(msg.contains("llama-server"));
         assert!(msg.contains("NOT free GPU memory"));
+        let resolved = format_vram_warning(hits[0], Some("Docker: life-copilot-llama-server"));
+        assert!(resolved.contains("Docker: life-copilot-llama-server"));
     }
 }
