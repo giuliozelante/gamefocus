@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use gamefocus_core::{
-    default_snapshot_path, discover_profiles, end_session, load_session_profile, park_targets,
-    start_session, warn_heavy_vram_users, BoostProvider, ProcessController, Profile, SessionMode,
-    SessionSnapshot,
+    default_snapshot_path, discover_profiles, end_session, format_session_impact,
+    load_session_profile, mem_available_bytes, park_targets, start_session, warn_heavy_vram_users,
+    BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -117,7 +117,11 @@ fn cmd_start(
     if let Some(parent) = snapshot_path.parent() {
         fs::create_dir_all(parent)?;
     }
+    let before_mem = mem_available_bytes();
     let snap = start_session(&profile, mode, controller.as_ref(), &booster_refs)?;
+    // Brief settle so PAGEOUT / working-set trim can show up in MemAvailable.
+    std::thread::sleep(std::time::Duration::from_millis(400));
+    let after_mem = mem_available_bytes();
     fs::write(&snapshot_path, serde_json::to_string_pretty(&snap)?)?;
     info!(
         path = %snapshot_path.display(),
@@ -125,6 +129,15 @@ fn cmd_start(
         focus = snap.focus_applied,
         boost = snap.boost_applied,
         "session started"
+    );
+    println!(
+        "{}",
+        format_session_impact(
+            snap.suspended.len(),
+            snap.boost_applied,
+            before_mem,
+            after_mem
+        )
     );
     Ok(())
 }
