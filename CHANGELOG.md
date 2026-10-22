@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `gamefocus stop` as an alias for `end`
 - Linux embedded/gaming profiles park Cursor, Java/Gradle, and `llama-server`
 - Optional `*` globs on `process_name` (e.g. `code-*`)
+- VRAM preflight: WARN when a non-whitelisted process holds ≥500 MiB GPU memory (`nvidia-smi`)
 
 ### Changed
 

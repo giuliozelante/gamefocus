@@ -4,6 +4,7 @@ mod error;
 mod paths;
 mod profile;
 mod session;
+mod vram;
 
 pub use error::{Error, Result};
 pub use paths::{
@@ -16,6 +17,10 @@ pub use profile::{
 pub use session::{
     end_session, park_targets, start_session, BoostContext, SessionMode, SessionSnapshot,
     SuspendedProcess,
+};
+pub use vram::{
+    format_vram_warning, parse_nvidia_smi_compute_apps, probe_nvidia_compute_apps,
+    vram_warn_targets, warn_heavy_vram_users, VramConsumer, VRAM_WARN_MIB,
 };
 
 /// Platform capability used by the CLI to pick a backend.

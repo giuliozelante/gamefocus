@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use gamefocus_core::{
     default_snapshot_path, discover_profiles, end_session, load_session_profile, park_targets,
-    start_session, BoostProvider, ProcessController, Profile, SessionMode, SessionSnapshot,
+    start_session, warn_heavy_vram_users, BoostProvider, ProcessController, Profile, SessionMode,
+    SessionSnapshot,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -105,6 +106,8 @@ fn cmd_start(
     let controller = platform_controller();
     let boosters = platform_boosters();
     let booster_refs: Vec<&dyn BoostProvider> = boosters.iter().map(|b| b.as_ref()).collect();
+
+    warn_heavy_vram_users(&profile);
 
     if dry_run {
         dry_run_report(&profile, mode, controller.as_ref())?;

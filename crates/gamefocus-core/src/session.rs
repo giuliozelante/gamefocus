@@ -88,7 +88,7 @@ fn is_protected_shell(info: &ProcessInfo) -> bool {
 }
 
 /// `process_name` rules: exact basename (case-insensitive), or simple `*` globs.
-fn process_name_matches(process_name: &str, pattern: &str) -> bool {
+pub(crate) fn process_name_matches(process_name: &str, pattern: &str) -> bool {
     let name = process_name.to_ascii_lowercase();
     let pat = pattern.to_ascii_lowercase();
     if pat.contains('*') {
