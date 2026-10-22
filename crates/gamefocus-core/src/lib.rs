@@ -3,6 +3,7 @@
 mod error;
 mod paths;
 mod profile;
+mod resources;
 mod session;
 mod vram;
 
@@ -18,6 +19,7 @@ pub use session::{
     end_session, park_targets, start_session, BoostContext, SessionMode, SessionSnapshot,
     SuspendedProcess,
 };
+pub use resources::{format_session_impact, mem_available_bytes};
 pub use vram::{
     format_vram_warning, parse_nvidia_smi_compute_apps, probe_nvidia_compute_apps,
     vram_warn_targets, warn_heavy_vram_users, VramConsumer, VRAM_WARN_MIB,
