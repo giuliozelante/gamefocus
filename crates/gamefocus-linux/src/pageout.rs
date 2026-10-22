@@ -5,12 +5,14 @@ use tracing::debug;
 
 /// Anonymous private `rw` VMA from `/proc/<pid>/maps`.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub struct AnonRange {
     pub start: u64,
     pub end: u64,
 }
 
 /// Parse `/proc/pid/maps` lines; keep anonymous private read-write mappings.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 pub fn parse_anon_rw_ranges(maps: &str) -> Vec<AnonRange> {
     let mut out = Vec::new();
     for line in maps.lines() {
