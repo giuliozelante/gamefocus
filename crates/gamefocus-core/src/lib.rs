@@ -1,5 +1,6 @@
 //! Shared domain for gamefocus: profiles, sessions, focus/boost policies.
 
+mod cgroup;
 mod error;
 mod paths;
 mod profile;
@@ -18,6 +19,9 @@ pub use profile::{
 pub use session::{
     end_session, park_targets, start_session, BoostContext, SessionMode, SessionSnapshot,
     SuspendedProcess,
+};
+pub use cgroup::{
+    format_cgroup_label, parse_cgroup_target, resolve_pid_supervisor_label, CgroupTarget,
 };
 pub use resources::{format_session_impact, mem_available_bytes};
 pub use vram::{

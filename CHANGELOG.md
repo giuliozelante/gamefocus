@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linux embedded/gaming profiles park Cursor, Java/Gradle, and `llama-server`
 - Optional `*` globs on `process_name` (e.g. `code-*`)
 - VRAM preflight: WARN when a non-whitelisted process holds ≥500 MiB GPU memory (`nvidia-smi`)
+- VRAM preflight resolves Docker/Podman/systemd-user names from cgroup when possible
 - Linux Focus: after SIGSTOP, soft-fail `process_madvise(MADV_PAGEOUT)` on anonymous RSS
 - Session impact summary after `start` (park count + MemAvailable delta when available)
 
