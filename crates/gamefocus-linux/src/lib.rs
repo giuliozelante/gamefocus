@@ -1,5 +1,7 @@
 //! Linux process control (SIGSTOP/SIGCONT) and optional GameMode boost.
 
+mod pageout;
+
 use gamefocus_core::{
     BoostHandle, BoostProvider, Error, ProcessController, ProcessInfo, Result,
 };
@@ -61,7 +63,10 @@ impl ProcessController for LinuxProcessController {
     }
 
     fn suspend(&self, pid: u32) -> Result<()> {
-        signal_pid(pid, SignalKind::Stop)
+        signal_pid(pid, SignalKind::Stop)?;
+        // Soft-fail: reclaim anonymous RSS so SIGSTOP is not a no-op for RAM pressure.
+        pageout::page_out_after_stop(pid);
+        Ok(())
     }
 
     fn resume(&self, pid: u32) -> Result<()> {

@@ -1248,6 +1248,7 @@ name = "gamefocus-linux"
 version = "0.3.1"
 dependencies = [
  "gamefocus-core",
+ "libc",
  "nix",
  "thiserror 2.0.21",
  "tracing",
