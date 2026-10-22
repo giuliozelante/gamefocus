@@ -87,10 +87,51 @@ fn is_protected_shell(info: &ProcessInfo) -> bool {
     NAMES.iter().any(|n| name.contains(n) || path.contains(n))
 }
 
+/// `process_name` rules: exact basename (case-insensitive), or simple `*` globs.
+fn process_name_matches(process_name: &str, pattern: &str) -> bool {
+    let name = process_name.to_ascii_lowercase();
+    let pat = pattern.to_ascii_lowercase();
+    if pat.contains('*') {
+        simple_glob_matches(&name, &pat)
+    } else {
+        name == pat
+    }
+}
+
+fn simple_glob_matches(name: &str, pattern: &str) -> bool {
+    let parts: Vec<&str> = pattern.split('*').collect();
+    if parts.is_empty() {
+        return name.is_empty();
+    }
+    let mut rest = name;
+    if !parts[0].is_empty() {
+        if !rest.starts_with(parts[0]) {
+            return false;
+        }
+        rest = &rest[parts[0].len()..];
+    }
+    for (i, part) in parts.iter().enumerate().skip(1) {
+        if part.is_empty() {
+            if i + 1 == parts.len() {
+                return true;
+            }
+            continue;
+        }
+        if i + 1 == parts.len() {
+            return rest.ends_with(part);
+        }
+        match rest.find(part) {
+            Some(idx) => rest = &rest[idx + part.len()..],
+            None => return false,
+        }
+    }
+    true
+}
+
 fn matcher_hits(info: &ProcessInfo, m: &crate::profile::Matcher) -> bool {
     use crate::profile::Matcher::*;
     match m {
-        ProcessName(s) => info.name.to_lowercase().contains(&s.to_lowercase()),
+        ProcessName(s) => process_name_matches(&info.name, s),
         ExePath(s) => info
             .exe_path
             .as_deref()
@@ -113,7 +154,7 @@ fn matches_any_matcher(info: &ProcessInfo, matchers: &[crate::profile::Matcher])
 fn matches_whitelist(info: &ProcessInfo, profile: &Profile) -> bool {
     use crate::profile::WhitelistEntry::*;
     profile.whitelist.iter().any(|entry| match entry {
-        ProcessName(s) => info.name.to_lowercase().contains(&s.to_lowercase()),
+        ProcessName(s) => process_name_matches(&info.name, s),
         ExePath(s) => info
             .exe_path
             .as_deref()
@@ -500,6 +541,78 @@ mod tests {
         let hits = park_targets(&profile, &processes, 7);
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].pid, 42);
+    }
+
+    #[test]
+    fn process_name_park_is_exact_not_substring() {
+        let profile = Profile {
+            name: "exact".into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: vec![crate::profile::Matcher::ProcessName("chrome".into())],
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy::default(),
+            boost: crate::profile::BoostPolicy::default(),
+        };
+        let processes = vec![
+            ProcessInfo {
+                pid: 10,
+                name: "chrome".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 11,
+                name: "chrome_crashpad".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 12,
+                name: "Chrome".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+        ];
+        let hits = park_targets(&profile, &processes, 1);
+        let pids: Vec<u32> = hits.iter().map(|p| p.pid).collect();
+        assert_eq!(pids, vec![10, 12], "chrome_crashpad must not match chrome");
+    }
+
+    #[test]
+    fn process_name_glob_star_matches_prefix() {
+        let profile = Profile {
+            name: "glob".into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: vec![crate::profile::Matcher::ProcessName("code-*".into())],
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy::default(),
+            boost: crate::profile::BoostPolicy::default(),
+        };
+        let processes = vec![
+            ProcessInfo {
+                pid: 1,
+                name: "code".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 2,
+                name: "code-helper".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+            ProcessInfo {
+                pid: 3,
+                name: "encode-helper".into(),
+                exe_path: None,
+                cmdline: None,
+            },
+        ];
+        let hits = park_targets(&profile, &processes, 99);
+        let pids: Vec<u32> = hits.iter().map(|p| p.pid).collect();
+        assert_eq!(pids, vec![2]);
     }
 
     #[test]
