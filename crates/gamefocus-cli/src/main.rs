@@ -8,7 +8,8 @@ use gamefocus_core::{
 use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
-use tracing::{info, Level};
+use std::process::{Command, ExitStatus};
+use tracing::{info, warn, Level};
 
 #[derive(Parser, Debug)]
 #[command(name = "gamefocus", version, about = "Cross-platform game focus + optional OS boosts")]
@@ -53,6 +54,27 @@ enum Commands {
     },
     /// List discoverable profile TOML files
     Profiles,
+    /// Start a session, run a command, end the session when it exits (Steam: gamefocus run -- %command%)
+    Run {
+        /// Path to a profile TOML. Omit to use ~/.config/gamefocus/default.toml or the embedded default.
+        #[arg(long, short)]
+        profile: Option<PathBuf>,
+        /// Override Focus on/off
+        #[arg(long, value_enum)]
+        focus: Option<OnOff>,
+        /// Override Boost on/off
+        #[arg(long, value_enum)]
+        boost: Option<OnOff>,
+        /// Where to write the session snapshot. Default: XDG/runtime path.
+        #[arg(long)]
+        snapshot: Option<PathBuf>,
+        /// Soft-stop reclaimable VRAM targets without prompting
+        #[arg(long)]
+        reclaim_vram: bool,
+        /// Command and args (use `--` before the game command)
+        #[arg(trailing_var_arg = true, allow_hyphen_values = true, required = true)]
+        command: Vec<String>,
+    },
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
@@ -86,8 +108,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::End { snapshot } => cmd_end(snapshot)?,
         Commands::Status { snapshot } => cmd_status(snapshot)?,
         Commands::Profiles => cmd_profiles()?,
+        Commands::Run {
+            profile,
+            focus,
+            boost,
+            snapshot,
+            reclaim_vram,
+            command,
+        } => {
+            let code = cmd_run(profile, focus, boost, snapshot, reclaim_vram, command)?;
+            if code != 0 {
+                std::process::exit(code);
+            }
+        }
     }
     Ok(())
+}
+
+/// Map a child `ExitStatus` to a process exit code (Unix signals → 128+n).
+fn exit_code_from_status(status: ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(sig) = status.signal() {
+            return 128 + sig;
+        }
+    }
+    1
 }
 
 fn snapshot_or_default(snapshot: Option<PathBuf>) -> PathBuf {
@@ -183,6 +233,38 @@ fn prompt_reclaim(target: &ReclaimTarget) -> bool {
     }
     let answer = line.trim().to_ascii_lowercase();
     answer.is_empty() || answer == "y" || answer == "yes"
+}
+
+fn cmd_run(
+    profile_path: Option<PathBuf>,
+    focus: Option<OnOff>,
+    boost: Option<OnOff>,
+    snapshot: Option<PathBuf>,
+    reclaim_vram: bool,
+    command: Vec<String>,
+) -> Result<i32, Box<dyn std::error::Error>> {
+    if command.is_empty() {
+        return Err("run requires a command (e.g. gamefocus run -- %command%)".into());
+    }
+    let snapshot_path = snapshot_or_default(snapshot.clone());
+    cmd_start(profile_path, focus, boost, snapshot.clone(), false, reclaim_vram)?;
+    let mut child = Command::new(&command[0]);
+    if command.len() > 1 {
+        child.args(&command[1..]);
+    }
+    info!(cmd = %command.join(" "), "running wrapped command");
+    let status = match child.status() {
+        Ok(s) => s,
+        Err(err) => {
+            warn!(%err, "wrapped command failed to spawn; ending session");
+            let _ = cmd_end(Some(snapshot_path));
+            return Err(err.into());
+        }
+    };
+    if let Err(err) = cmd_end(Some(snapshot_path)) {
+        warn!(%err, "session end after run failed");
+    }
+    Ok(exit_code_from_status(status))
 }
 
 fn cmd_end(snapshot: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
@@ -297,6 +379,65 @@ fn platform_boosters() -> Vec<Box<dyn BoostProvider>> {
     #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     {
         Vec::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn run_parses_trailing_command_after_double_dash() {
+        let cli = Cli::try_parse_from([
+            "gamefocus",
+            "run",
+            "--reclaim-vram",
+            "--",
+            "sleep",
+            "1",
+        ])
+        .expect("parse");
+        match cli.command {
+            Commands::Run {
+                reclaim_vram,
+                command,
+                ..
+            } => {
+                assert!(reclaim_vram);
+                assert_eq!(command, vec!["sleep", "1"]);
+            }
+            other => panic!("expected Run, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn run_requires_a_command() {
+        assert!(Cli::try_parse_from(["gamefocus", "run"]).is_err());
+    }
+
+    #[test]
+    fn exit_code_from_success_status() {
+        #[cfg(unix)]
+        {
+            let status = Command::new("true").status().expect("true");
+            assert_eq!(exit_code_from_status(status), 0);
+            let status = Command::new("false").status().expect("false");
+            assert_eq!(exit_code_from_status(status), 1);
+        }
+        #[cfg(windows)]
+        {
+            let status = Command::new("cmd")
+                .args(["/C", "exit /B 0"])
+                .status()
+                .expect("cmd");
+            assert_eq!(exit_code_from_status(status), 0);
+            let status = Command::new("cmd")
+                .args(["/C", "exit /B 7"])
+                .status()
+                .expect("cmd");
+            assert_eq!(exit_code_from_status(status), 7);
+        }
     }
 }
 
