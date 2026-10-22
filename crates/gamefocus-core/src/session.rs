@@ -34,6 +34,9 @@ pub struct SessionSnapshot {
     pub boost_applied: bool,
     pub suspended: Vec<SuspendedProcess>,
     pub boost_handles: Vec<BoostHandleDto>,
+    /// Soft-stopped VRAM supervisors to restore on end.
+    #[serde(default)]
+    pub reclaimed: Vec<crate::reclaim::ReclaimedEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -363,6 +366,7 @@ mod tests {
                 enabled: true,
                 providers,
             },
+            gpu: Default::default(),
         }
     }
 
@@ -380,6 +384,7 @@ mod tests {
                 enabled: true,
                 providers: vec!["power_plan".into()],
             },
+            gpu: Default::default(),
         };
         struct OrderController<'a> {
             order: &'a Mutex<Vec<&'static str>>,
@@ -500,6 +505,7 @@ mod tests {
                 provider_id: "power_plan".into(),
                 payload: String::new(),
             }],
+            reclaimed: Vec::new(),
         };
         let controller = OrderEndController { order: &order };
         let boost = OrderEndBoost { order: &order };
@@ -517,6 +523,7 @@ mod tests {
             whitelist: Vec::new(),
             focus: crate::profile::FocusPolicy::default(),
             boost: crate::profile::BoostPolicy::default(),
+            gpu: Default::default(),
         };
         let processes = vec![
             ProcessInfo {
@@ -553,6 +560,7 @@ mod tests {
             whitelist: Vec::new(),
             focus: crate::profile::FocusPolicy::default(),
             boost: crate::profile::BoostPolicy::default(),
+            gpu: Default::default(),
         };
         let processes = vec![
             ProcessInfo {
@@ -589,6 +597,7 @@ mod tests {
             whitelist: Vec::new(),
             focus: crate::profile::FocusPolicy::default(),
             boost: crate::profile::BoostPolicy::default(),
+            gpu: Default::default(),
         };
         let processes = vec![
             ProcessInfo {
@@ -646,6 +655,7 @@ mod tests {
                 action: "soft_stop".into(),
             }],
             boost_handles: Vec::new(),
+            reclaimed: Vec::new(),
         };
         let controller = ResumeLog { resumes: &resumes };
         end_session(&snap, &controller, &[]).expect("end");

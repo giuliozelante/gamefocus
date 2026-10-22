@@ -134,6 +134,7 @@ mod tests {
             whitelist: Vec::new(),
             focus: FocusPolicy::default(),
             boost: BoostPolicy::default(),
+            gpu: Default::default(),
         }
     }
 

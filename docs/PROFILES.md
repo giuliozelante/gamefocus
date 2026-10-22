@@ -27,6 +27,18 @@ cp profiles/embedded/linux.toml ~/.config/gamefocus/default.toml
 
 Edit the park list, then run `gamefocus start` with no flags.
 
+## VRAM reclaim (`[gpu.vram_reclaim]`)
+
+Focus `SIGSTOP` does not free GPU memory. Optional reclaim soft-stops resolvable Docker/Podman/systemd-user targets that hold ≥ `threshold_mib` and match `reclaimable_patterns`, then restores them on `end`.
+
+| `policy` | Behavior |
+|----------|----------|
+| `warn` | Log only (non-TTY CLI default when unset) |
+| `prompt` | Ask on a TTY (embedded Linux default) |
+| `auto` | Soft-stop without asking |
+
+CLI override: `gamefocus start --reclaim-vram` (always auto-approve matching targets).
+
 ## Bundled examples
 
 | Path | Role |
