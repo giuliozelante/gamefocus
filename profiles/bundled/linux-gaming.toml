@@ -45,6 +45,15 @@ cmdline = "/tmp/.mount_Cursor"
 [[park]]
 cmdline = "cursor-appimage"
 
+[[park]]
+process_name = "java"
+
+[[park]]
+process_name = "llama-server"
+
+[[park]]
+cmdline = "llama-server"
+
 # Extra protect (in addition to shell protect)
 [[whitelist]]
 process_name = "steam"
