@@ -267,6 +267,7 @@ pub fn resolve_pid_reclaim_target(pid: u32) -> Option<ReclaimTarget> {
     }
 }
 
+#[cfg(any(test, target_os = "linux"))]
 fn resolve_from_cgroup_text(cgroup: &str) -> Option<ReclaimTarget> {
     let cg = crate::cgroup::parse_cgroup_target(cgroup)?;
     match cg {
@@ -353,7 +354,7 @@ mod tests {
             starts: Mutex::new(Vec::new()),
             fail_stop: false,
         };
-        let stopped = soft_stop_targets(&[target.clone()], ReclaimMode::Auto, |_| false, &ops);
+        let stopped = soft_stop_targets(std::slice::from_ref(&target), ReclaimMode::Auto, |_| false, &ops);
         assert_eq!(stopped.len(), 1);
         assert!(stopped[0].was_running);
         assert_eq!(ops.stops.lock().unwrap().len(), 1);
