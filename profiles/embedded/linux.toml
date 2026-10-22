@@ -53,7 +53,7 @@ protect_shell = true
 
 [boost]
 enabled = true
-providers = ["gamemode"]
+providers = ["gamemode", "power_profiles"]
 
 [gpu.vram_reclaim]
 policy = "prompt"

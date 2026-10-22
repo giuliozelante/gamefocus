@@ -207,9 +207,109 @@ fn which(bin: &str) -> Option<PathBuf> {
     None
 }
 
+/// Target profile for power-profiles-daemon during a Boost session.
+pub const PERFORMANCE_PROFILE: &str = "performance";
+
+/// Read/write the active power-profiles-daemon profile.
+pub trait PowerProfilesCtl: Send + Sync {
+    fn get(&self) -> Result<String>;
+    fn set(&self, profile: &str) -> Result<()>;
+}
+
+/// Soft-fail Boost via `powerprofilesctl` (power-profiles-daemon).
+pub struct PowerProfilesBoost<C: PowerProfilesCtl = SystemPowerProfilesCtl> {
+    ctl: C,
+}
+
+impl PowerProfilesBoost<SystemPowerProfilesCtl> {
+    pub fn system() -> Self {
+        Self {
+            ctl: SystemPowerProfilesCtl,
+        }
+    }
+}
+
+impl<C: PowerProfilesCtl> PowerProfilesBoost<C> {
+    pub fn new(ctl: C) -> Self {
+        Self { ctl }
+    }
+}
+
+impl<C: PowerProfilesCtl> BoostProvider for PowerProfilesBoost<C> {
+    fn id(&self) -> &'static str {
+        "power_profiles"
+    }
+
+    fn apply(&self, _ctx: &gamefocus_core::BoostContext<'_>) -> Result<BoostHandle> {
+        let previous = self.ctl.get()?;
+        if previous != PERFORMANCE_PROFILE {
+            self.ctl.set(PERFORMANCE_PROFILE)?;
+        }
+        Ok(BoostHandle {
+            provider_id: self.id().into(),
+            payload: previous,
+        })
+    }
+
+    fn rollback(&self, handle: BoostHandle) -> Result<()> {
+        if handle.payload != PERFORMANCE_PROFILE {
+            self.ctl.set(&handle.payload)?;
+        }
+        Ok(())
+    }
+}
+
+/// Shells out to `powerprofilesctl get|set`.
+#[derive(Debug, Default)]
+pub struct SystemPowerProfilesCtl;
+
+impl PowerProfilesCtl for SystemPowerProfilesCtl {
+    fn get(&self) -> Result<String> {
+        if which("powerprofilesctl").is_none() {
+            return Err(Error::Boost {
+                provider: "power_profiles".into(),
+                message: "powerprofilesctl not found; install power-profiles-daemon".into(),
+            });
+        }
+        let out = Command::new("powerprofilesctl")
+            .arg("get")
+            .output()
+            .map_err(|e| Error::Boost {
+                provider: "power_profiles".into(),
+                message: e.to_string(),
+            })?;
+        if !out.status.success() {
+            return Err(Error::Boost {
+                provider: "power_profiles".into(),
+                message: String::from_utf8_lossy(&out.stderr).into_owned(),
+            });
+        }
+        Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    }
+
+    fn set(&self, profile: &str) -> Result<()> {
+        let out = Command::new("powerprofilesctl")
+            .args(["set", profile])
+            .output()
+            .map_err(|e| Error::Boost {
+                provider: "power_profiles".into(),
+                message: e.to_string(),
+            })?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(Error::Boost {
+                provider: "power_profiles".into(),
+                message: String::from_utf8_lossy(&out.stderr).into_owned(),
+            })
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::gamemode_busctl_args;
+    use super::*;
+    use std::sync::Mutex;
 
     #[test]
     fn register_game_uses_gamemode_interface_not_client() {
@@ -222,5 +322,60 @@ mod tests {
             !args.iter().any(|a| a.contains(".Client")),
             "stale .Client iface: {args:?}"
         );
+    }
+
+    struct MemCtl {
+        active: Mutex<String>,
+        sets: Mutex<Vec<String>>,
+    }
+
+    impl PowerProfilesCtl for MemCtl {
+        fn get(&self) -> Result<String> {
+            Ok(self.active.lock().expect("active").clone())
+        }
+        fn set(&self, profile: &str) -> Result<()> {
+            self.sets.lock().expect("sets").push(profile.into());
+            *self.active.lock().expect("active") = profile.into();
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn power_profiles_sets_performance_and_restores_previous() {
+        let ctl = MemCtl {
+            active: Mutex::new("balanced".into()),
+            sets: Mutex::new(Vec::new()),
+        };
+        let boost = PowerProfilesBoost::new(ctl);
+        let handle = boost
+            .apply(&gamefocus_core::BoostContext { suspended: &[] })
+            .expect("apply");
+        assert_eq!(handle.payload, "balanced");
+        assert_eq!(handle.provider_id, "power_profiles");
+        assert_eq!(
+            boost.ctl.sets.lock().expect("sets").as_slice(),
+            &["performance".to_string()]
+        );
+        boost.rollback(handle).expect("rollback");
+        assert_eq!(
+            boost.ctl.sets.lock().expect("sets").as_slice(),
+            &["performance".to_string(), "balanced".to_string()]
+        );
+        assert_eq!(*boost.ctl.active.lock().expect("active"), "balanced");
+    }
+
+    #[test]
+    fn power_profiles_skips_set_when_already_performance() {
+        let ctl = MemCtl {
+            active: Mutex::new("performance".into()),
+            sets: Mutex::new(Vec::new()),
+        };
+        let boost = PowerProfilesBoost::new(ctl);
+        let handle = boost
+            .apply(&gamefocus_core::BoostContext { suspended: &[] })
+            .expect("apply");
+        assert!(boost.ctl.sets.lock().expect("sets").is_empty());
+        boost.rollback(handle).expect("rollback");
+        assert!(boost.ctl.sets.lock().expect("sets").is_empty());
     }
 }

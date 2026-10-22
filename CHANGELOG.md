@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VRAM reclaim lifecycle: `[gpu.vram_reclaim]` policy (`warn`/`prompt`/`auto`), soft-stop matching Docker/Podman/systemd-user targets, restore on `end`; CLI `--reclaim-vram`
 - Tray Start gaming prompts to soft-stop reclaimable VRAM targets; Stop gaming restores them
 - `gamefocus run [--reclaim-vram] -- <cmd>...` starts a session, runs the command, ends on exit (Steam launch options)
+- Linux Boost: `power_profiles` provider (`powerprofilesctl` → `performance`, restore on end; soft-fail)
 - Linux Focus: after SIGSTOP, soft-fail `process_madvise(MADV_PAGEOUT)` on anonymous RSS
 - Session impact summary after `start` (park count + MemAvailable delta when available)
 

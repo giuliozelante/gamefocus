@@ -366,7 +366,10 @@ fn platform_controller() -> Box<dyn ProcessController> {
 fn platform_boosters() -> Vec<Box<dyn BoostProvider>> {
     #[cfg(target_os = "linux")]
     {
-        vec![Box::new(gamefocus_linux::GameModeBoost::new())]
+        vec![
+            Box::new(gamefocus_linux::GameModeBoost::new()),
+            Box::new(gamefocus_linux::PowerProfilesBoost::system()),
+        ]
     }
     #[cfg(target_os = "windows")]
     {
