@@ -74,6 +74,9 @@ cargo run -p gamefocus-cli -- start
 # Soft-stop reclaimable GPU hogs (Docker/Podman/systemd-user) without prompting:
 cargo run -p gamefocus-cli -- start --reclaim-vram
 
+# Wrap a game (Steam launch options: gamefocus run -- %command%)
+cargo run -p gamefocus-cli -- run -- sleep 1
+
 # Optional explicit profile
 cargo run -p gamefocus-cli -- start --profile bundled/linux-gaming.toml --dry-run
 
