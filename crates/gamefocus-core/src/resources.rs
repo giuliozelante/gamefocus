@@ -59,8 +59,8 @@ mod tests {
             Some(5 * 1024 * 1024 * 1024 + 400 * 1024 * 1024),
         );
         assert!(s.contains("12 apps paused"));
-        // (5GiB + 400MiB) - 2GiB = 3488 MiB
-        assert!(s.contains("+3488 MiB"), "{s}");
+        // (5GiB + 400MiB) - 2GiB = 3072 + 400 = 3472 MiB
+        assert!(s.contains("+3472 MiB"), "{s}");
         assert!(s.contains("Boost: applied"));
     }
 
