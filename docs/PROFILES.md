@@ -4,6 +4,12 @@ A profile is a TOML file that lists which processes Focus may park, what to whit
 
 Casual users can ignore this file. The CLI and tray load an **embedded OS default** when you do not pass `--profile` and have no user default.
 
+### `process_name` matching
+
+- Default: **exact** executable basename, case-insensitive (`chrome` matches `Chrome`, not `chrome_crashpad`).
+- Optional simple globs with `*` (e.g. `code-*` matches `code-helper`).
+- `exe_path` and `cmdline` still use substring contains.
+
 ## Resolve order
 
 1. `--profile <path>` (or a tray selection)

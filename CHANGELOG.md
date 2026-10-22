@@ -11,10 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `gamefocus stop` as an alias for `end`
 - Linux embedded/gaming profiles park Cursor, Java/Gradle, and `llama-server`
+- Optional `*` globs on `process_name` (e.g. `code-*`)
 
 ### Changed
 
 - Resume of already-exited parked PIDs (ESRCH) logs at debug instead of warn
+- `process_name` park/whitelist matching is exact basename (case-insensitive), not substring
 
 ## [0.3.1] - 2026-10-21
 
