@@ -4,10 +4,13 @@ mod host;
 mod paths;
 
 use gamefocus_core::{
-    end_session, load_session_profile, start_session, Profile, SessionMode, SessionSnapshot,
+    collect_reclaim_candidates, effective_reclaim_mode, end_session, load_session_profile,
+    restore_reclaimed, soft_stop_targets, start_session, warn_heavy_vram_users, Profile,
+    ReclaimTarget, SessionMode, SessionSnapshot, SystemSupervisor,
 };
 use host::{platform_boosters, platform_controller};
 use paths::{default_snapshot_path, discover_profiles, resolve_profile_path};
+use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
@@ -188,16 +191,27 @@ fn run_start(ui: &UiState) -> Result<(), String> {
     }
     let (profile, source) = load_session_profile(ui.profile.as_deref())?;
     info!(%source, "profile loaded for tray session");
+    warn_heavy_vram_users(&profile);
     let mode = SessionMode {
         focus: Some(ui.focus),
         boost: Some(ui.boost),
     };
+    let reclaim_mode =
+        effective_reclaim_mode(profile.gpu.vram_reclaim.policy, false, true);
+    let candidates = collect_reclaim_candidates(&profile);
+    let reclaimed = soft_stop_targets(
+        &candidates,
+        reclaim_mode,
+        prompt_tray_reclaim,
+        &SystemSupervisor,
+    );
     let controller = platform_controller();
     let boosters = platform_boosters();
     let booster_refs: Vec<&dyn gamefocus_core::BoostProvider> =
         boosters.iter().map(|b| b.as_ref()).collect();
-    let snap = start_session(&profile, mode, controller.as_ref(), &booster_refs)
+    let mut snap = start_session(&profile, mode, controller.as_ref(), &booster_refs)
         .map_err(|e| e.to_string())?;
+    snap.reclaimed = reclaimed;
     if let Some(parent) = ui.snapshot.parent() {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
@@ -209,9 +223,23 @@ fn run_start(ui: &UiState) -> Result<(), String> {
     info!(
         path = %ui.snapshot.display(),
         suspended = snap.suspended.len(),
+        reclaimed = snap.reclaimed.len(),
         "session started from UI"
     );
     Ok(())
+}
+
+fn prompt_tray_reclaim(target: &ReclaimTarget) -> bool {
+    let result = MessageDialog::new()
+        .set_level(MessageLevel::Warning)
+        .set_title("High GPU memory in use")
+        .set_description(format!(
+            "{} is holding VRAM. Suspending it will not free GPU memory.\n\nStop it for this session and restore when you stop gaming?",
+            target.label()
+        ))
+        .set_buttons(MessageButtons::YesNo)
+        .show();
+    matches!(result, MessageDialogResult::Yes)
 }
 
 fn run_end(snapshot: &PathBuf) -> Result<(), String> {
@@ -225,6 +253,10 @@ fn run_end(snapshot: &PathBuf) -> Result<(), String> {
     let booster_refs: Vec<&dyn gamefocus_core::BoostProvider> =
         boosters.iter().map(|b| b.as_ref()).collect();
     end_session(&snap, controller.as_ref(), &booster_refs).map_err(|e| e.to_string())?;
+    if !snap.reclaimed.is_empty() {
+        restore_reclaimed(&snap.reclaimed, &SystemSupervisor);
+        info!(count = snap.reclaimed.len(), "vram reclaim restored from UI");
+    }
     let _ = fs::remove_file(snapshot);
     info!("session ended from UI");
     Ok(())
