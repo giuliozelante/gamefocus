@@ -35,6 +35,7 @@ enum Commands {
         dry_run: bool,
     },
     /// End a session using a previously written snapshot
+    #[command(visible_alias = "stop")]
     End {
         #[arg(long)]
         snapshot: Option<PathBuf>,

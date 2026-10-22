@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `gamefocus stop` as an alias for `end`
+- Linux embedded/gaming profiles park Cursor, Java/Gradle, and `llama-server`
+
+### Changed
+
+- Resume of already-exited parked PIDs (ESRCH) logs at debug instead of warn
+
 ## [0.3.1] - 2026-10-21
 
 ### Fixed

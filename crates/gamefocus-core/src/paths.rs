@@ -313,6 +313,16 @@ mod tests {
     }
 
     #[test]
+    fn embedded_linux_parks_cursor_java_and_llama() {
+        let path = repo_root_guess().join("profiles/embedded/linux.toml");
+        let profile = crate::Profile::load_file(&path).expect("linux embedded");
+        let dump = format!("{:?}", profile.park);
+        assert!(dump.contains("cursor") || dump.contains("Cursor"), "{dump}");
+        assert!(dump.contains("java"), "{dump}");
+        assert!(dump.contains("llama-server"), "{dump}");
+    }
+
+    #[test]
     fn load_session_profile_uses_explicit_path() {
         let path = repo_root_guess().join("profiles/bundled/linux-gaming.toml");
         let (profile, source) = load_session_profile(Some(&path)).expect("load");

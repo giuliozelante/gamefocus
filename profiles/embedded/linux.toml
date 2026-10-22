@@ -1,5 +1,5 @@
 name = "default-linux"
-description = "Safe embedded default: park common browsers and chat apps. GameMode boost when available."
+description = "Embedded default: park browsers, chat, Cursor, Java/Gradle, and llama-server. GameMode when available."
 
 [[park]]
 process_name = "chrome"
@@ -24,6 +24,21 @@ process_name = "Slack"
 
 [[park]]
 process_name = "slack"
+
+[[park]]
+process_name = "cursor"
+
+[[park]]
+cmdline = "/tmp/.mount_Cursor"
+
+[[park]]
+process_name = "java"
+
+[[park]]
+process_name = "llama-server"
+
+[[park]]
+cmdline = "llama-server"
 
 [[whitelist]]
 process_name = "steam"

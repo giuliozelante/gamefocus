@@ -243,11 +243,26 @@ pub fn end_session(
     for proc in snapshot.suspended.iter().rev() {
         if proc.action == "suspend" {
             if let Err(err) = controller.resume(proc.pid) {
-                warn!(pid = proc.pid, %err, "resume failed");
+                if resume_failure_is_benign(&err) {
+                    tracing::debug!(pid = proc.pid, %err, "resume skipped; process already gone");
+                } else {
+                    warn!(pid = proc.pid, %err, "resume failed");
+                }
             }
         }
     }
     Ok(())
+}
+
+/// Gone PIDs (exited while parked) are expected after a long session — not a real failure.
+pub(crate) fn resume_failure_is_benign(err: &Error) -> bool {
+    match err {
+        Error::Process { message, .. } => {
+            let m = message.to_ascii_lowercase();
+            m.contains("esrch") || m.contains("no such process")
+        }
+        _ => false,
+    }
 }
 
 #[cfg(test)]
@@ -522,5 +537,19 @@ mod tests {
         let controller = ResumeLog { resumes: &resumes };
         end_session(&snap, &controller, &[]).expect("end");
         assert!(resumes.lock().expect("resumes").is_empty());
+    }
+
+    #[test]
+    fn esrch_resume_errors_are_benign() {
+        let err = Error::Process {
+            pid: 1,
+            message: "process 1: ESRCH: No such process".into(),
+        };
+        assert!(resume_failure_is_benign(&err));
+        let other = Error::Process {
+            pid: 1,
+            message: "EPERM: Operation not permitted".into(),
+        };
+        assert!(!resume_failure_is_benign(&other));
     }
 }
