@@ -1,5 +1,5 @@
 name = "default-linux"
-description = "Embedded default: park browsers, chat, Cursor, Java/Gradle, and llama-server. GameMode when available."
+description = "Embedded default: park browsers, Spotify/Slack, Cursor, Java/Gradle, and llama-server. Keep Discord. GameMode when available."
 
 [[park]]
 process_name = "chrome"
@@ -9,12 +9,6 @@ process_name = "chromium"
 
 [[park]]
 process_name = "firefox"
-
-[[park]]
-process_name = "Discord"
-
-[[park]]
-process_name = "discord"
 
 [[park]]
 process_name = "spotify"
@@ -42,6 +36,12 @@ cmdline = "llama-server"
 
 [[whitelist]]
 process_name = "steam"
+
+[[whitelist]]
+process_name = "Discord"
+
+[[whitelist]]
+process_name = "discord"
 
 [[whitelist]]
 process_name = "gamefocus"

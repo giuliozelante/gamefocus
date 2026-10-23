@@ -320,6 +320,15 @@ mod tests {
         assert!(dump.contains("cursor") || dump.contains("Cursor"), "{dump}");
         assert!(dump.contains("java"), "{dump}");
         assert!(dump.contains("llama-server"), "{dump}");
+        assert!(
+            !dump.to_ascii_lowercase().contains("discord"),
+            "Discord must not be parked: {dump}"
+        );
+        let white = format!("{:?}", profile.whitelist);
+        assert!(
+            white.to_ascii_lowercase().contains("discord"),
+            "Discord should be whitelisted: {white}"
+        );
     }
 
     #[test]
