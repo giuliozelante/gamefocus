@@ -222,21 +222,23 @@ pub fn start_session(
         let processes = controller.list_processes()?;
         let self_pid = std::process::id();
         for info in park_targets(profile, &processes, self_pid) {
-            let action = match profile.focus.action {
-                FocusAction::Suspend => {
-                    controller.suspend(info.pid)?;
-                    "suspend"
-                }
-                FocusAction::SoftStop => {
-                    controller.soft_stop(info.pid)?;
-                    "soft_stop"
-                }
+            let result = match profile.focus.action {
+                FocusAction::Suspend => controller.suspend(info.pid).map(|_| "suspend"),
+                FocusAction::SoftStop => controller.soft_stop(info.pid).map(|_| "soft_stop"),
             };
-            snap.suspended.push(SuspendedProcess {
-                pid: info.pid,
-                name: info.name.clone(),
-                action: action.into(),
-            });
+            match result {
+                Ok(action) => snap.suspended.push(SuspendedProcess {
+                    pid: info.pid,
+                    name: info.name.clone(),
+                    action: action.into(),
+                }),
+                Err(err) => warn!(
+                    pid = info.pid,
+                    name = %info.name,
+                    %err,
+                    "focus park soft-fail"
+                ),
+            }
         }
         snap.focus_applied = true;
         info!(count = snap.suspended.len(), "focus applied");
@@ -511,6 +513,64 @@ mod tests {
         let boost = OrderEndBoost { order: &order };
         end_session(&snap, &controller, &[&boost]).expect("end");
         assert_eq!(*order.lock().expect("order"), vec!["rollback", "resume"]);
+    }
+
+    #[test]
+    fn park_eperm_soft_fails_and_continues() {
+        struct MixedController;
+        impl ProcessController for MixedController {
+            fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
+                Ok(vec![
+                    ProcessInfo {
+                        pid: 10,
+                        name: "chrome".into(),
+                        exe_path: None,
+                        cmdline: None,
+                    },
+                    ProcessInfo {
+                        pid: 20,
+                        name: "llama-server".into(),
+                        exe_path: None,
+                        cmdline: None,
+                    },
+                ])
+            }
+            fn suspend(&self, pid: u32) -> Result<()> {
+                if pid == 20 {
+                    return Err(Error::Process {
+                        pid,
+                        message: "EPERM: Operation not permitted".into(),
+                    });
+                }
+                Ok(())
+            }
+            fn resume(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+            fn soft_stop(&self, _pid: u32) -> Result<()> {
+                Ok(())
+            }
+        }
+        let profile = Profile {
+            name: "soft".into(),
+            description: String::new(),
+            matchers: Vec::new(),
+            park: vec![
+                crate::profile::Matcher::ProcessName("chrome".into()),
+                crate::profile::Matcher::ProcessName("llama-server".into()),
+            ],
+            whitelist: Vec::new(),
+            focus: crate::profile::FocusPolicy::default(),
+            boost: crate::profile::BoostPolicy {
+                enabled: false,
+                providers: Vec::new(),
+            },
+            gpu: Default::default(),
+        };
+        let snap = start_session(&profile, SessionMode::default(), &MixedController, &[])
+            .expect("start must soft-fail EPERM");
+        assert_eq!(snap.suspended.len(), 1);
+        assert_eq!(snap.suspended[0].pid, 10);
     }
 
     #[test]
