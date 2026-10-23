@@ -305,10 +305,11 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
 
-    let icon = app
-        .default_window_icon()
-        .cloned()
-        .expect("bundled window icon required for tray");
+    // Prefer an explicit RGBA tray asset; palette/default icons can show as blank on Plasma.
+    let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray-64.png"))
+        .ok()
+        .or_else(|| app.default_window_icon().cloned())
+        .expect("tray icon required");
     // Keep the TrayIcon alive for the app lifetime; dropping it removes the icon.
     let tray: TrayIcon = TrayIconBuilder::new()
         .icon(icon)
