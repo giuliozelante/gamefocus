@@ -14,17 +14,21 @@ use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use serde::Serialize;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
-    AppHandle, Manager, State, WindowEvent,
+    AppHandle, Manager, RunEvent, State, WindowEvent,
 };
 use tracing::{info, warn};
 
 struct AppState {
     inner: Mutex<UiState>,
 }
+
+/// When false, ExitRequested is cancelled so closing the window does not kill the tray.
+struct AllowExit(AtomicBool);
 
 #[derive(Debug, Clone)]
 struct UiState {
@@ -355,6 +359,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
                     }
                 }
                 "quit" => {
+                    app.state::<AllowExit>().0.store(true, Ordering::SeqCst);
                     app.exit(0);
                 }
                 _ => {}
@@ -391,6 +396,7 @@ pub fn run() {
         .manage(AppState {
             inner: Mutex::new(UiState::default()),
         })
+        .manage(AllowExit(AtomicBool::new(false)))
         .invoke_handler(tauri::generate_handler![
             list_profiles,
             get_status,
@@ -414,8 +420,15 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running gamefocus UI");
+        .build(tauri::generate_context!())
+        .expect("error while building gamefocus UI")
+        .run(|app, event| {
+            if let RunEvent::ExitRequested { api, .. } = event {
+                if !app.state::<AllowExit>().0.load(Ordering::SeqCst) {
+                    api.prevent_exit();
+                }
+            }
+        });
 }
 
 #[cfg(test)]

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Tray icon stayed invisible because `TrayIcon` was dropped right after setup
+- Tray app exited when the control window closed; it now stays in the system tray until Quit
 
 ### Changed
 
