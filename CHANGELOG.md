@@ -21,6 +21,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linux Focus: after SIGSTOP, soft-fail `process_madvise(MADV_PAGEOUT)` on anonymous RSS
 - Session impact summary after `start` (park count + MemAvailable delta when available)
 
+### Fixed
+
+- Tray icon stayed invisible because `TrayIcon` was dropped right after setup
+- Tray app exited when the control window closed; it now stays in the system tray until Quit
+
 ### Changed
 
 - Embedded profiles no longer park Discord (whitelisted); gamers keep voice chat during Focus
