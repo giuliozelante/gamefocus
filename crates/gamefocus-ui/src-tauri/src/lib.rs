@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 use tauri::{
     menu::{CheckMenuItem, Menu, MenuItem, PredefinedMenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
     AppHandle, Manager, State, WindowEvent,
 };
 use tracing::{info, warn};
@@ -309,10 +309,11 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
         .default_window_icon()
         .cloned()
         .expect("bundled window icon required for tray");
-    let _tray = TrayIconBuilder::new()
+    // Keep the TrayIcon alive for the app lifetime; dropping it removes the icon.
+    let tray: TrayIcon = TrayIconBuilder::new()
         .icon(icon)
         .menu(&menu)
-        .show_menu_on_left_click(false)
+        .show_menu_on_left_click(true)
         .tooltip("gamefocus")
         .on_menu_event(|app, event| {
             let state = app.state::<AppState>();
@@ -369,6 +370,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+    app.manage(tray);
 
     Ok(())
 }
