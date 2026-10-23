@@ -1,5 +1,5 @@
 name = "default-windows"
-description = "Safe embedded default: park common browsers and chat apps. Power plan, working set, and CPU affinity boosts."
+description = "Safe embedded default: park common browsers and chat apps; keep Discord. Power plan, working set, and CPU affinity boosts."
 
 [[park]]
 process_name = "chrome.exe"
@@ -11,9 +11,6 @@ process_name = "msedge.exe"
 process_name = "firefox.exe"
 
 [[park]]
-process_name = "Discord.exe"
-
-[[park]]
 process_name = "Spotify.exe"
 
 [[park]]
@@ -21,6 +18,9 @@ process_name = "Slack.exe"
 
 [[whitelist]]
 process_name = "steam.exe"
+
+[[whitelist]]
+process_name = "Discord.exe"
 
 [[whitelist]]
 process_name = "gamefocus"

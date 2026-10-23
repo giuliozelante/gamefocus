@@ -1,14 +1,11 @@
 name = "default-macos"
-description = "Safe embedded default: park common browsers and chat apps. No Boost provider on macOS yet."
+description = "Safe embedded default: park common browsers and chat apps; keep Discord. No Boost provider on macOS yet."
 
 [[park]]
 process_name = "Google Chrome"
 
 [[park]]
 process_name = "firefox"
-
-[[park]]
-process_name = "Discord"
 
 [[park]]
 process_name = "Spotify"
@@ -18,6 +15,9 @@ process_name = "Slack"
 
 [[whitelist]]
 process_name = "Steam"
+
+[[whitelist]]
+process_name = "Discord"
 
 [[whitelist]]
 process_name = "gamefocus"

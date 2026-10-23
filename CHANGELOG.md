@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Embedded profiles no longer park Discord (whitelisted); gamers keep voice chat during Focus
 - Resume of already-exited parked PIDs (ESRCH) logs at debug instead of warn
 - `process_name` park/whitelist matching is exact basename (case-insensitive), not substring
 
